@@ -1,0 +1,81 @@
+> Build a clean, well-structured React component (or module) that renders charts based on a provided `data` array and a JSON `config` object using this schema:
+>
+> ### 🔁 Config Input Schema:
+>
+> ```json
+> {
+>   "type": "<chart_type>",              // e.g. "bar", "gantt", "dumbbell", etc.
+>   "x": "<column_name>",
+>   "x2": "<optional_column_name>",      // for dumbbell/gantt
+>   "y": "<column_name | null>",
+>   "series": "<column_name | null>",
+>   "title": "<string>",
+>   "transform_x": "<transform_string | null>",
+>   "transform_y": "<transform_string | null>",
+>   "rationale": "<string>"
+> }
+> ```
+>
+> ### 📊 Supported Chart Types:
+>
+> * Bar, Line, Area, Pie, Histogram, Scatter, Bubble, Box, Heatmap, Treemap
+> * **Gantt** (x=start, x2=end)
+> * **Dumbbell** (x and x2 on the same axis)
+>
+> ### 🧠 Required Features:
+>
+> #### ✅ Data-driven Rendering
+>
+> * Use only column names and config values—do not hardcode axes.
+> * Render charts based on `type` using a dispatcher pattern: `renderBarChart`, `renderGanttChart`, etc.
+>
+> #### 🧮 Transformations Support
+>
+> Add support for these transformations:
+>
+> ##### Time-Based (`transform_x`)
+>
+> * `date_group:year` / `month_year` / `month` / `quarter` / `day_of_week`
+>
+>   * Group by extracted parts of date (e.g., `January 2025` or `Q2 2024`)
+>
+> ##### Numeric (`transform_x` or `transform_y`)
+>
+> * `bin:auto`, `bin:quartile` → bin numeric columns
+> * `log_scale`, `z_score`, `normalize`
+>
+> ##### Aggregations (`transform_y`)
+>
+> * `count`, `sum`, `mean`, `median`, `min`, `max`, `cumulative`
+>
+>   * When `y` is categorical or null, use `count(*)`
+>   * When `y` is numeric, use the specified aggregation
+>
+> ##### Categorical
+>
+> * `topk:10`, `bottomk:5`, `other_group:0.05`, `alphabetical`, `frequency`
+>
+> Implement a utility function like `transformData(data, config)` that performs all of this before rendering.
+>
+> #### 📦 Component Design
+>
+> * Component: `<ChartRenderer data={data} config={config} />`
+> * Internally route to correct render function based on `config.type`
+> * Show chart `title`, responsive layout, tooltips, and axis labels
+>
+> #### 🧱 Code Style & Structure
+>
+> * Use React functional components
+> * Keep chart renderers modular (e.g. `renderDumbbellChart`)
+> * Prefer **Recharts** (or Plotly if needed for complex cases)
+> * Avoid overengineering—prioritize clarity and reusability
+>
+> #### 🧪 Edge Handling
+>
+> * Handle nulls, empty data, missing x2 or series gracefully
+> * Show fallback or warning if config is invalid or chart not supported
+>
+> #### 🌟 Optional Enhancements
+>
+> * Add sorting options for y-axis labels
+> * Display `config.rationale` as a chart subtitle or tooltip
