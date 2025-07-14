@@ -1,0 +1,180 @@
+Refined: Develop a reusable TypeScript React component that renders a **dumbbell chart** (also known as a connected dot plot).
+The component should:
+
+* Accept the same data‑shape shown below (each item has `x` = planned finish, `x2` = actual finish, `y` = IWP id, `series` = CWP name).
+* Display one horizontal “dumbbell” per task: a left‑hand dot at the planned date, a right‑hand dot at the actual date, connected by a slim line.
+* Encode `series` with color; provide a small, extensible palette.
+* Include left (task) and bottom (time) axes, neat date ticks, and a legend.
+* Be headless‑friendly: width/height passed as props; no CSS dependencies beyond Tailwind defaults.
+
+Perspective: Front‑end engineer building an analytics dashboard with **visx** to ensure consistency with the earlier Gantt component.
+
+Execution:
+
+```tsx
+// DumbbellChart.tsx
+// Dependencies: @visx/scale @visx/group @visx/axis @visx/shape @visx/legend d3-time-format
+// npm i @visx/scale @visx/group @visx/axis @visx/shape @visx/legend d3-time-format
+
+import React from "react";
+import { Group } from "@visx/group";
+import { AxisBottom, AxisLeft } from "@visx/axis";
+import { scaleBand, scaleTime, scaleOrdinal } from "@visx/scale";
+import { Line, Circle } from "@visx/shape";
+import { LegendOrdinal } from "@visx/legend";
+import { timeParse, timeFormat } from "d3-time-format";
+
+type DumbbellDatum = {
+  x: string;   // plan_finish
+  x2: string;  // actual_finish
+  y: string;   // iwp_id
+  series: string; // cwp_name
+};
+
+type Props = {
+  data: DumbbellDatum[];
+  width?: number;
+  height?: number;
+  margin?: { top: number; right: number; bottom: number; left: number };
+};
+
+const parseDate = timeParse("%Y-%m-%d");
+const fmtDate = timeFormat("%b %d");
+
+const DumbbellChart: React.FC<Props> = ({
+  data,
+  width = 900,
+  height = 500,
+  margin = { top: 40, right: 40, bottom: 50, left: 120 },
+}) => {
+  // ─── Prepare data ─────────────────────────────────────────────
+  const rows = data.map(d => ({
+    ...d,
+    x: parseDate(d.x)!,
+    x2: parseDate(d.x2)!,
+  }));
+
+  const innerW = width - margin.left - margin.right;
+  const innerH = height - margin.top - margin.bottom;
+
+  // Y scale (tasks)
+  const tasks = [...new Set(rows.map(d => d.y))];
+  const yScale = scaleBand<string>({
+    domain: tasks,
+    range: [0, innerH],
+    padding: 0.5,
+  });
+
+  // X scale (dates)
+  const minDate = new Date(Math.min(...rows.map(r => r.x.getTime())));
+  const maxDate = new Date(Math.max(...rows.map(r => r.x2.getTime())));
+  const xScale = scaleTime({
+    domain: [minDate, maxDate],
+    range: [0, innerW],
+  });
+
+  // Color scale (series)
+  const seriesSet = [...new Set(rows.map(r => r.series))];
+  const color = scaleOrdinal<string, string>({
+    domain: seriesSet,
+    range: ["#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14f", "#edc948"],
+  });
+
+  // ─── Render ───────────────────────────────────────────────────
+  return (
+    <svg width={width} height={height}>
+      <Group left={margin.left} top={margin.top}>
+        {/* Dumbbells */}
+        {rows.map((d, i) => {
+          const y = yScale(d.y)! + yScale.bandwidth() / 2;
+          const x1 = xScale(d.x);
+          const x2 = xScale(d.x2);
+          const col = color(d.series);
+
+          return (
+            <Group key={i}>
+              {/* connecting line */}
+              <Line
+                from={{ x: x1, y }}
+                to={{ x: x2, y }}
+                stroke={col}
+                strokeWidth={2}
+                strokeOpacity={0.7}
+              />
+              {/* planned dot */}
+              <Circle cx={x1} cy={y} r={6} fill={col} />
+              {/* actual dot */}
+              <Circle
+                cx={x2}
+                cy={y}
+                r={6}
+                fill={col}
+                stroke="#fff"
+                strokeWidth={1.5}
+              />
+            </Group>
+          );
+        })}
+
+        {/* Axes */}
+        <AxisBottom
+          top={innerH}
+          scale={xScale}
+          tickFormat={fmtDate}
+          tickLabelProps={() => ({ fontSize: 11, dy: "0.25em" })}
+        />
+        <AxisLeft
+          scale={yScale}
+          tickLabelProps={() => ({ fontSize: 11, dx: "-0.25em" })}
+        />
+
+        {/* Legend */}
+        <Group top={-30}>
+          <LegendOrdinal
+            scale={color}
+            direction="row"
+            labelMargin="0 12px 0 4px"
+          />
+        </Group>
+      </Group>
+    </svg>
+  );
+};
+
+export default DumbbellChart;
+```
+
+### How to use
+
+```tsx
+import DumbbellChart from "./DumbbellChart";
+import type { DumbbellDatum } from "./DumbbellChart";
+
+const spec = {
+  data: [
+    { x: "2025-01-12", x2: "2025-01-14", y: "IWP‑001", series: "CWP‑100" },
+    { x: "2025-01-24", x2: "2025-01-26", y: "IWP‑002", series: "CWP‑100" },
+    /* … */
+  ],
+};
+
+export default function Dashboard() {
+  return (
+    <section className="p-4">
+      <h2 className="text-xl font-semibold mb-4">
+        Planned vs Actual Finish Dates by IWP
+      </h2>
+      <DumbbellChart data={spec.data} />
+    </section>
+  );
+}
+```
+
+**Extensions you might add later**
+
+* Tooltip on hover showing exact dates and delta days
+* Conditional line coloring (green = on/early, red = late)
+* Interactive filtering by `series` or search by `iwp_id`
+* Animated transitions when data updates
+
+Let me know if you’d like any of these enhancements or a version built with another library like `recharts`!

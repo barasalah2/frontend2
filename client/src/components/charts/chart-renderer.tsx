@@ -19,10 +19,11 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from 'recharts';
-import { scaleBand, scaleTime, scaleOrdinal } from "@visx/scale";
+import { scaleBand, scaleTime, scaleOrdinal, scaleLinear } from "@visx/scale";
 import { Group } from "@visx/group";
 import { AxisBottom, AxisLeft } from "@visx/axis";
-import { Bar as VisxBar } from "@visx/shape";
+import { Bar as VisxBar, Line as VisxLine, Circle } from "@visx/shape";
+import { LegendOrdinal } from "@visx/legend";
 import { useTooltip, TooltipWithBounds, defaultStyles } from "@visx/tooltip";
 import { timeParse, timeFormat } from "d3-time-format";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -65,6 +66,21 @@ type GanttData = {
 
 type GanttProps = {
   data: GanttData[];
+  config: ChartConfig;
+  width?: number;
+  height?: number;
+};
+
+// visx-based DumbbellChart Component
+type DumbbellDatum = {
+  x: string;   // plan_finish
+  x2: string;  // actual_finish
+  y: string;   // iwp_id
+  series: string; // cwp_name
+};
+
+type DumbbellProps = {
+  data: DumbbellDatum[];
   config: ChartConfig;
   width?: number;
   height?: number;
@@ -309,6 +325,248 @@ const GanttChart: React.FC<GanttProps> = ({ data, config, width = 800, height = 
             <div>Start: {typeof tooltipData.x === 'string' ? tooltipData.x : tooltipData.x.toLocaleDateString()}</div>
             <div>End: {typeof tooltipData.x2 === 'string' ? tooltipData.x2 : tooltipData.x2.toLocaleDateString()}</div>
             <div>Duration: {Math.ceil((new Date(tooltipData.x2).getTime() - new Date(tooltipData.x).getTime()) / (1000 * 60 * 60 * 24))} days</div>
+          </div>
+        </TooltipWithBounds>
+      )}
+    </div>
+  );
+};
+
+const ResponsiveDumbbellChart: React.FC<Omit<DumbbellProps, 'width' | 'height'>> = ({ data, config }) => {
+  const [dimensions, setDimensions] = React.useState({ width: 900, height: 500 });
+
+  React.useEffect(() => {
+    const updateDimensions = () => {
+      const container = document.querySelector('.chart-container');
+      if (container) {
+        const rect = container.getBoundingClientRect();
+        setDimensions({
+          width: Math.max(700, rect.width - 40), 
+          height: 500
+        });
+      } else {
+        setDimensions({
+          width: Math.max(700, window.innerWidth - 200),
+          height: 500
+        });
+      }
+    };
+
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, []);
+
+  return <DumbbellChart data={data} config={config} width={dimensions.width} height={dimensions.height} />;
+};
+
+const DumbbellChart: React.FC<DumbbellProps> = ({ data, config, width = 900, height = 500 }) => {
+  // Handle empty data
+  if (!data || data.length === 0) {
+    return (
+      <div style={{ width, height, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: '#666', fontSize: '14px' }}>No data available for Dumbbell chart</p>
+      </div>
+    );
+  }
+
+  // Parse dates - try different formats
+  const parseDate = timeParse("%Y-%m-%d");
+  const formatDate = timeFormat("%b %d");
+  
+  const rows = data.map(d => {
+    let parsedX = parseDate(d.x);
+    let parsedX2 = parseDate(d.x2);
+    
+    // Fallback to direct Date parsing if format doesn't match
+    if (!parsedX) parsedX = new Date(d.x);
+    if (!parsedX2) parsedX2 = new Date(d.x2);
+    
+    return {
+      ...d,
+      x: parsedX,
+      x2: parsedX2,
+    };
+  }).filter(d => d.x && d.x2 && !isNaN(d.x.getTime()) && !isNaN(d.x2.getTime()));
+
+  if (rows.length === 0) {
+    return (
+      <div style={{ width, height, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: '#666', fontSize: '14px' }}>Invalid date format in Dumbbell chart data</p>
+      </div>
+    );
+  }
+
+  const margin = { top: 40, right: 40, bottom: 50, left: 120 };
+  const innerW = width - margin.left - margin.right;
+  const innerH = height - margin.top - margin.bottom;
+
+  // Y scale (tasks)
+  const tasks = [...new Set(rows.map(d => d.y))];
+  const yScale = scaleBand<string>({
+    domain: tasks,
+    range: [0, innerH],
+    padding: 0.5,
+  });
+
+  // X scale (dates)
+  const minDate = new Date(Math.min(...rows.map(r => r.x.getTime())));
+  const maxDate = new Date(Math.max(...rows.map(r => r.x2.getTime())));
+  const xScale = scaleTime({
+    domain: [minDate, maxDate],
+    range: [0, innerW],
+  });
+
+  // Color scale (series)
+  const seriesSet = [...new Set(rows.map(r => r.series))];
+  const color = scaleOrdinal<string, string>({
+    domain: seriesSet,
+    range: ["#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14f", "#edc948"],
+  });
+
+  const {
+    tooltipData,
+    tooltipLeft,
+    tooltipTop,
+    tooltipOpen,
+    showTooltip,
+    hideTooltip,
+  } = useTooltip<DumbbellDatum>();
+
+  const tooltipStyles = {
+    ...defaultStyles,
+    background: 'rgba(0, 0, 0, 0.9)',
+    color: 'white',
+    border: 'none',
+    borderRadius: '4px',
+    padding: '8px 12px',
+    fontSize: '12px',
+  };
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <svg width={width} height={height}>
+        <Group left={margin.left} top={margin.top}>
+          {/* Dumbbells */}
+          {rows.map((d, i) => {
+            const y = yScale(d.y)! + yScale.bandwidth() / 2;
+            const x1 = xScale(d.x);
+            const x2 = xScale(d.x2);
+            const col = color(d.series);
+
+            return (
+              <Group key={i}>
+                {/* connecting line */}
+                <VisxLine
+                  from={{ x: x1, y }}
+                  to={{ x: x2, y }}
+                  stroke={col}
+                  strokeWidth={2}
+                  strokeOpacity={0.7}
+                />
+                {/* planned dot */}
+                <Circle 
+                  cx={x1} 
+                  cy={y} 
+                  r={6} 
+                  fill={col}
+                  style={{ cursor: 'pointer' }}
+                  onMouseEnter={(event) => {
+                    showTooltip({
+                      tooltipData: d,
+                      tooltipLeft: x1,
+                      tooltipTop: y,
+                    });
+                  }}
+                  onMouseLeave={() => hideTooltip()}
+                />
+                {/* actual dot */}
+                <Circle
+                  cx={x2}
+                  cy={y}
+                  r={6}
+                  fill={col}
+                  stroke="#fff"
+                  strokeWidth={1.5}
+                  style={{ cursor: 'pointer' }}
+                  onMouseEnter={(event) => {
+                    showTooltip({
+                      tooltipData: d,
+                      tooltipLeft: x2,
+                      tooltipTop: y,
+                    });
+                  }}
+                  onMouseLeave={() => hideTooltip()}
+                />
+              </Group>
+            );
+          })}
+
+          {/* Axes */}
+          <AxisBottom
+            top={innerH}
+            scale={xScale}
+            tickFormat={formatDate}
+            stroke="#666"
+            tickStroke="#666"
+            tickLabelProps={() => ({
+              fill: '#666',
+              fontSize: 11,
+              textAnchor: 'middle',
+              dy: "0.25em"
+            })}
+          />
+          <AxisLeft
+            scale={yScale}
+            stroke="#666"
+            tickStroke="#666"
+            tickLabelProps={() => ({
+              fill: '#666',
+              fontSize: 11,
+              textAnchor: 'end',
+              dx: "-0.25em"
+            })}
+          />
+
+          {/* Legend */}
+          <Group top={-35} left={0}>
+            {seriesSet.map((seriesName, i) => (
+              <Group key={seriesName} left={i * 120}>
+                <Circle
+                  cx={8}
+                  cy={8}
+                  r={6}
+                  fill={color(seriesName)}
+                />
+                <text
+                  x={20}
+                  y={8}
+                  fill="#666"
+                  fontSize={12}
+                  textAnchor="start"
+                  dominantBaseline="middle"
+                >
+                  {seriesName}
+                </text>
+              </Group>
+            ))}
+          </Group>
+        </Group>
+      </svg>
+
+      {/* Tooltip */}
+      {tooltipOpen && tooltipData && (
+        <TooltipWithBounds
+          top={tooltipTop + margin.top}
+          left={tooltipLeft + margin.left}
+          style={tooltipStyles}
+        >
+          <div>
+            <div><strong>{tooltipData.y}</strong></div>
+            <div>Series: {tooltipData.series}</div>
+            <div>Planned: {typeof tooltipData.x === 'string' ? tooltipData.x : tooltipData.x.toLocaleDateString()}</div>
+            <div>Actual: {typeof tooltipData.x2 === 'string' ? tooltipData.x2 : tooltipData.x2.toLocaleDateString()}</div>
+            <div>Deviation: {Math.ceil((new Date(tooltipData.x2).getTime() - new Date(tooltipData.x).getTime()) / (1000 * 60 * 60 * 24))} days</div>
           </div>
         </TooltipWithBounds>
       )}
@@ -568,6 +826,10 @@ const renderAreaChart = (data: any[], config: ChartConfig) => {
 };
 
 const renderPieChart = (data: any[], config: ChartConfig) => {
+  const isDonut = config.type.toLowerCase() === 'donut';
+  const innerRadius = isDonut ? 50 : 0; // Hollow center for donut charts
+  const outerRadius = 100;
+
   return (
     <ResponsiveContainer width="100%" height="100%">
       <PieChart>
@@ -577,8 +839,10 @@ const renderPieChart = (data: any[], config: ChartConfig) => {
           nameKey="x"
           cx="50%"
           cy="50%"
-          outerRadius={80}
+          innerRadius={innerRadius}
+          outerRadius={outerRadius}
           label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+          labelLine={false}
         >
           {data.map((entry, index) => (
             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -588,6 +852,7 @@ const renderPieChart = (data: any[], config: ChartConfig) => {
           formatter={(value, name) => [value, config.y || 'Value']}
           labelFormatter={(label) => `${config.x}: ${label}`}
         />
+        <Legend />
       </PieChart>
     </ResponsiveContainer>
   );
@@ -676,43 +941,7 @@ const renderGanttChart = (data: any[], config: ChartConfig) => {
 };
 
 const renderDumbbellChart = (data: any[], config: ChartConfig) => {
-  // Process data using standardized x, x2, y format
-  const processedData = data.map(item => ({
-    name: item.y || 'Item', // Use y field for row labels
-    value1: parseFloat(item.x) || 0,
-    value2: item.x2 ? parseFloat(item.x2) || 0 : 0
-  }));
-
-  return (
-    <ResponsiveContainer width="100%" height="100%">
-      <BarChart 
-        data={processedData} 
-        layout="horizontal"
-        margin={{ top: 20, right: 30, left: 80, bottom: 40 }}
-      >
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis 
-          type="number" 
-          label={{ value: config.x, position: 'insideBottom', offset: -10, style: { textAnchor: 'middle' } }}
-        />
-        <YAxis 
-          type="category" 
-          dataKey="name" 
-          label={{ value: config.y, angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' } }}
-        />
-        <Tooltip 
-          labelFormatter={(label) => `${config.y}: ${label}`}
-          formatter={(value, name) => {
-            if (name === 'value1') return [value, config.x];
-            if (name === 'value2') return [value, config.x2 || 'Value 2'];
-            return [value, name];
-          }}
-        />
-        <Bar dataKey="value1" fill={COLORS[0]} />
-        <Bar dataKey="value2" fill={COLORS[1]} />
-      </BarChart>
-    </ResponsiveContainer>
-  );
+  return <ResponsiveDumbbellChart data={data} config={config} />;
 };
 
 const renderHistogram = (data: any[], config: ChartConfig) => {
@@ -774,6 +1003,240 @@ const renderHistogram = (data: any[], config: ChartConfig) => {
       </BarChart>
     </ResponsiveContainer>
   );
+};
+
+// visx-based Horizontal Bar Chart Component
+type HorizontalBarDatum = {
+  x: number;  // tag_qty
+  y: string;  // iwp_id
+  value: number;
+  count: number;
+  series?: string; // Optional series for multi-series support
+};
+
+// Horizontal Bar Chart Component (separate component to use hooks properly)
+const HorizontalBarChart: React.FC<{ data: HorizontalBarDatum[], config: ChartConfig }> = ({ data, config }) => {
+  const width = 800;
+  const height = 500;
+  const margin = { top: 40, right: 150, bottom: 80, left: 120 };
+  
+  // Check if we have series data for multi-series charts
+  const hasSeries = data.length > 0 && data[0].series !== null && data[0].series !== undefined;
+  
+  // Sort data descending by x (quantity)
+  const sorted = [...data].sort((a, b) => b.x - a.x);
+
+  const innerW = width - margin.left - margin.right;
+  const innerH = height - margin.top - margin.bottom;
+
+  // Scales
+  const yScale = scaleBand<string>({
+    domain: sorted.map(d => d.y),
+    range: [0, innerH],
+    padding: 0.2,
+  });
+
+  const maxX = Math.max(...sorted.map(d => d.x));
+  const xScale = scaleLinear<number>({
+    domain: [0, maxX],
+    range: [0, innerW],
+    nice: true,
+  });
+
+  // Color scale for series
+  const seriesNames = hasSeries ? [...new Set(sorted.map(d => d.series).filter(Boolean))] : [];
+  const colorScale = scaleOrdinal<string, string>({
+    domain: seriesNames,
+    range: COLORS,
+  });
+
+  const {
+    tooltipData,
+    tooltipLeft,
+    tooltipTop,
+    tooltipOpen,
+    showTooltip,
+    hideTooltip,
+  } = useTooltip<HorizontalBarDatum>();
+
+  const tooltipStyles = {
+    ...defaultStyles,
+    background: 'rgba(0, 0, 0, 0.9)',
+    color: 'white',
+    border: 'none',
+    borderRadius: '4px',
+    padding: '8px 12px',
+    fontSize: '12px',
+  };
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <svg width={width} height={height}>
+        <Group left={margin.left} top={margin.top}>
+          {/* Grid lines */}
+          {xScale.ticks(5).map((tickValue) => (
+            <line
+              key={tickValue}
+              x1={xScale(tickValue)}
+              x2={xScale(tickValue)}
+              y1={0}
+              y2={innerH}
+              stroke="#e0e0e0"
+              strokeDasharray="3,3"
+              strokeWidth={1}
+              opacity={0.6}
+            />
+          ))}
+          
+          {/* Bars */}
+          {sorted.map((d, i) => {
+            const barY = yScale(d.y)!;
+            const barW = xScale(d.x);
+            const barH = yScale.bandwidth();
+            const barColor = hasSeries ? colorScale(d.series || '') : COLORS[0];
+
+            return (
+              <VisxBar
+                key={i}
+                x={0}
+                y={barY}
+                width={barW}
+                height={barH}
+                fill={barColor}
+                rx={4}
+                stroke="#fff"
+                strokeWidth={1}
+                style={{ cursor: 'pointer' }}
+                onMouseEnter={(event) => {
+                  const svgRect = event.currentTarget.ownerSVGElement?.getBoundingClientRect();
+                  const tooltipLeft = (svgRect?.left || 0) + margin.left + barW + 10;
+                  const tooltipTop = (svgRect?.top || 0) + margin.top + barY + barH / 2;
+                  showTooltip({
+                    tooltipData: d,
+                    tooltipLeft,
+                    tooltipTop,
+                  });
+                }}
+                onMouseLeave={hideTooltip}
+              />
+            );
+          })}
+
+          {/* Axes */}
+          <AxisBottom
+            top={innerH}
+            scale={xScale}
+            tickFormat={n => n.toString()}
+            stroke="#666"
+            tickStroke="#666"
+            tickLabelProps={() => ({ 
+              fontSize: 12, 
+              dy: "0.75em",
+              fill: "#666",
+              textAnchor: "middle"
+            })}
+          />
+          <AxisLeft
+            scale={yScale}
+            stroke="#666"
+            tickStroke="#666"
+            tickLabelProps={() => ({ 
+              fontSize: 12, 
+              dx: "-0.5em",
+              dy: "0.25em",
+              fill: "#666",
+              textAnchor: "end",
+              dominantBaseline: "middle"
+            })}
+          />
+
+          {/* Axis Labels */}
+          <text
+            x={innerW / 2}
+            y={innerH + 40}
+            fill="#666"
+            fontSize={14}
+            fontWeight="bold"
+            textAnchor="middle"
+          >
+            {config.x || 'Value'}
+          </text>
+          <text
+            x={-innerH / 2}
+            y={-60}
+            fill="#666"
+            fontSize={14}
+            fontWeight="bold"
+            textAnchor="middle"
+            transform={`rotate(-90, ${-innerH / 2}, -60)`}
+          >
+            {config.y || 'Category'}
+          </text>
+        </Group>
+
+        {/* Legend - only show if we have series data */}
+        {hasSeries && seriesNames.length > 0 && (
+          <Group top={margin.top} left={width - margin.right + 20}>
+            <text
+              x={0}
+              y={0}
+              fill="#666"
+              fontSize={14}
+              fontWeight="bold"
+              textAnchor="start"
+            >
+              {config.series || 'Series'}
+            </text>
+            {seriesNames.map((seriesName, i) => (
+              <Group key={seriesName} top={20 + i * 20}>
+                <rect
+                  x={0}
+                  y={-8}
+                  width={12}
+                  height={12}
+                  fill={colorScale(seriesName)}
+                  rx={2}
+                />
+                <text
+                  x={18}
+                  y={0}
+                  fill="#666"
+                  fontSize={12}
+                  textAnchor="start"
+                  dominantBaseline="middle"
+                >
+                  {seriesName}
+                </text>
+              </Group>
+            ))}
+          </Group>
+        )}
+      </svg>
+      
+      {/* Enhanced Tooltip */}
+      {tooltipOpen && tooltipData && (
+        <TooltipWithBounds
+          key={Math.random()}
+          top={tooltipTop}
+          left={tooltipLeft}
+          style={tooltipStyles}
+        >
+          <div>
+            <div><strong>{tooltipData.y}</strong></div>
+            {tooltipData.series && (
+              <div>Series: {tooltipData.series}</div>
+            )}
+            <div>{config.x || 'Value'}: {tooltipData.x}</div>
+            <div>Count: {tooltipData.count || tooltipData.value}</div>
+          </div>
+        </TooltipWithBounds>
+      )}
+    </div>
+  );
+};
+
+const renderHorizontalBarChart = (data: HorizontalBarDatum[], config: ChartConfig) => {
+  return <HorizontalBarChart data={data} config={config} />;
 };
 
 const renderFallbackChart = (data: any[], config: ChartConfig) => {
@@ -848,7 +1311,7 @@ export function ChartRenderer({ data, config, height = 400, width = "100%" }: Ch
       case 'stacked_bar':
         return renderBarChart(transformedData, config);
       case 'horizontal_bar':
-        return renderBarChart(transformedData, config);
+        return renderHorizontalBarChart(transformedData, config);
       default:
         return renderFallbackChart(transformedData, config);
     }

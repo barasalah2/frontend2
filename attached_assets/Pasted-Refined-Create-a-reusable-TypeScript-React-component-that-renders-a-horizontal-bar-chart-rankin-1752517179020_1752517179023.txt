@@ -1,0 +1,135 @@
+Refined: Create a reusable TypeScript React component that renders a **horizontal bar chart** ranking IWPs (`y`) by tag quantity (`x`).
+The component should:
+
+* Accept an array where each item has numeric `x` (`tag_qty`) and categorical `y` (`iwp_id`).
+* Draw left‑to‑right bars, sorted descending by quantity.
+* Offer props for width, height, and bar color; default palette if none supplied.
+* Include an x‑axis (quantity), a y‑axis (IWP labels), and an accessible title.
+* Stay dependency‑light and consistent with the previous `visx`‑based components.
+
+Perspective: Front‑end engineer adding a horizontal bar chart to the same analytics dashboard, keeping the tech stack (visx + Tailwind) uniform.
+
+Execution:
+
+```tsx
+// HorizontalBarChart.tsx
+// Dependencies: @visx/scale @visx/group @visx/axis @visx/shape
+// npm i @visx/scale @visx/group @visx/axis @visx/shape
+
+import React from "react";
+import { Group } from "@visx/group";
+import { scaleBand, scaleLinear } from "@visx/scale";
+import { AxisBottom, AxisLeft } from "@visx/axis";
+import { Bar } from "@visx/shape";
+
+type BarDatum = {
+  x: number;  // tag_qty
+  y: string;  // iwp_id
+};
+
+interface Props {
+  data: BarDatum[];
+  width?: number;
+  height?: number;
+  barColor?: string;
+  margin?: { top: number; right: number; bottom: number; left: number };
+}
+
+const HorizontalBarChart: React.FC<Props> = ({
+  data,
+  width = 800,
+  height = 500,
+  barColor = "#4e79a7",
+  margin = { top: 40, right: 40, bottom: 50, left: 120 },
+}) => {
+  // Sort data descending by x (quantity)
+  const sorted = [...data].sort((a, b) => b.x - a.x);
+
+  const innerW = width - margin.left - margin.right;
+  const innerH = height - margin.top - margin.bottom;
+
+  // Scales
+  const yScale = scaleBand<string>({
+    domain: sorted.map(d => d.y),
+    range: [0, innerH],
+    padding: 0.2,
+  });
+
+  const maxX = Math.max(...sorted.map(d => d.x));
+  const xScale = scaleLinear<number>({
+    domain: [0, maxX],
+    range: [0, innerW],
+    nice: true,
+  });
+
+  return (
+    <svg width={width} height={height}>
+      <Group left={margin.left} top={margin.top}>
+        {/* Bars */}
+        {sorted.map((d, i) => {
+          const barY = yScale(d.y)!;
+          const barW = xScale(d.x);
+          const barH = yScale.bandwidth();
+
+          return (
+            <Bar
+              key={i}
+              x={0}
+              y={barY}
+              width={barW}
+              height={barH}
+              fill={barColor}
+              rx={3}
+            />
+          );
+        })}
+
+        {/* Axes */}
+        <AxisBottom
+          top={innerH}
+          scale={xScale}
+          tickFormat={n => n.toString()}
+          tickLabelProps={() => ({ fontSize: 11, dy: "0.25em" })}
+        />
+        <AxisLeft
+          scale={yScale}
+          tickLabelProps={() => ({ fontSize: 11, dx: "-0.25em" })}
+        />
+      </Group>
+    </svg>
+  );
+};
+
+export default HorizontalBarChart;
+```
+
+### Usage
+
+```tsx
+import HorizontalBarChart from "./HorizontalBarChart";
+
+const barSpec = {
+  data: [
+    { x: 85, y: "IWP‑007" },
+    { x: 72, y: "IWP‑004" },
+    { x: 68, y: "IWP‑001" },
+    { x: 55, y: "IWP‑010" },
+    // …
+  ],
+};
+
+export default function TagQuantityPanel() {
+  return (
+    <section className="p-4">
+      <h2 className="text-xl font-semibold mb-4">Tag Quantity per IWP</h2>
+      <HorizontalBarChart data={barSpec.data} />
+    </section>
+  );
+}
+```
+
+**Possible add‑ons**
+
+* Tooltip on hover with exact quantity
+* Bars colored by performance thresholds or by `series` if you decide to include it later
+* Responsive resize using a `ResizeObserver` wrapper

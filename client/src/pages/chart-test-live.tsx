@@ -137,11 +137,14 @@ const sampleConfigs = [
   },
   {
     type: "dumbbell",
-    x: "iwp_plan_date",
-    x2: "iwp_actual_start_date",
+    x: "iwp_plan_finish_date",
+    x2: "iwp_actual_finish_date",
     y: "iwp_id",
-    title: "Planned vs Actual Start Dates",
-    rationale: "Compares planned and actual start dates for each IWP"
+    series: "cwp_name",
+    title: "Planned vs Actual Finish Dates by IWP",
+    transform_x: null,
+    transform_y: null,
+    rationale: "Highlights the schedule deviation for each IWP."
   },
   {
     type: "histogram",
