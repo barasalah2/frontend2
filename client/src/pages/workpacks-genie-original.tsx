@@ -9,7 +9,7 @@ import { TypingIndicator } from "@/components/chat/typing-indicator";
 import { Button } from "@/components/ui/button";
 import { EnhancedWorkPackageTable } from "@/components/tables/enhanced-work-package-table";
 
-import { Menu, Download, Bot, User } from "lucide-react";
+import { Menu, Download, Bot, User, TestTube } from "lucide-react";
 
 interface Message {
   id: number;
@@ -287,6 +287,15 @@ export default function WorkpacksGenie() {
               </div>
             </div>
             <div className="flex items-center space-x-3">
+              <Button
+                onClick={() => window.location.href = '/chart-test'}
+                variant="outline"
+                size="sm"
+                className="border-workpack-blue text-workpack-blue hover:bg-workpack-blue hover:text-white"
+              >
+                <TestTube className="h-4 w-4 mr-2" />
+                Test Charts
+              </Button>
               <Button
                 onClick={handleExportReport}
                 className="bg-workpack-green hover:bg-green-700 text-white"

@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import WorkpacksGenie from "@/pages/workpacks-genie-original";
+import ChartTestLive from "@/pages/chart-test-live";
 
 import NotFound from "@/pages/not-found";
 
@@ -12,6 +13,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={WorkpacksGenie} />
+      <Route path="/chart-test" component={ChartTestLive} />
 
       <Route component={NotFound} />
     </Switch>
