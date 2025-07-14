@@ -90,13 +90,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (save_chart && conversation_id) {
         await storage.createMessage({
           conversationId: conversation_id,
-          content: "Generated interactive visualizations for your data analysis",
+          content: `Generated ${visualizations.charts.length} interactive visualizations for your data analysis`,
           sender: "bot",
           messageType: "visualization",
           data: {
-            charts: visualizations,
+            charts: visualizations.charts,
             originalData: data_snippet,
             columns: columns,
+            title: visualizations.title,
+            description: visualizations.description,
             timestamp: new Date().toISOString()
           }
         });
@@ -286,7 +288,7 @@ function generateVisualizationConfig(columns: any[], data_snippet: any[]) {
     return { ...col, type: 'categorical' };
   });
 
-  const visualizations = [];
+  const charts = [];
   
   // Find time + numeric combinations for line charts
   const timeColumns = columnTypes.filter(col => col.type === 'time');
@@ -294,39 +296,78 @@ function generateVisualizationConfig(columns: any[], data_snippet: any[]) {
   const categoricalColumns = columnTypes.filter(col => col.type === 'categorical');
   
   if (timeColumns.length > 0 && numericColumns.length > 0) {
-    visualizations.push({
+    charts.push({
       type: 'line',
       x: timeColumns[0].name,
       y: numericColumns[0].name,
-      color: null,
+      series: null,
       title: `${numericColumns[0].name} over Time`,
-      transform: 'count'
+      transform_x: 'date_group:month_year',
+      transform_y: 'sum',
+      rationale: `Shows the trend of ${numericColumns[0].name} over time periods`
     });
   }
   
   // Categorical distributions
   if (categoricalColumns.length > 0) {
-    visualizations.push({
+    charts.push({
       type: 'pie',
-      x: null,
-      y: categoricalColumns[0].name,
-      color: null,
+      x: categoricalColumns[0].name,
+      y: null,
+      series: null,
       title: `Distribution of ${categoricalColumns[0].name}`,
-      transform: 'count'
+      transform_x: null,
+      transform_y: 'count',
+      rationale: `Shows the proportion breakdown of ${categoricalColumns[0].name} categories`
     });
   }
   
   // Numeric + categorical for bar charts
   if (numericColumns.length > 0 && categoricalColumns.length > 0) {
-    visualizations.push({
+    charts.push({
       type: 'bar',
       x: categoricalColumns[0].name,
       y: numericColumns[0].name,
-      color: null,
+      series: null,
       title: `${numericColumns[0].name} by ${categoricalColumns[0].name}`,
-      transform: 'aggregate_sum'
+      transform_x: 'topk:10',
+      transform_y: 'sum',
+      rationale: `Compares ${numericColumns[0].name} values across different ${categoricalColumns[0].name} categories`
     });
   }
-  
-  return visualizations;
+
+  // Add scatter plot if we have multiple numeric columns
+  if (numericColumns.length >= 2) {
+    charts.push({
+      type: 'scatter',
+      x: numericColumns[0].name,
+      y: numericColumns[1].name,
+      series: categoricalColumns.length > 0 ? categoricalColumns[0].name : null,
+      title: `${numericColumns[0].name} vs ${numericColumns[1].name}`,
+      transform_x: null,
+      transform_y: null,
+      rationale: `Shows the correlation between ${numericColumns[0].name} and ${numericColumns[1].name}`
+    });
+  }
+
+  // Add histogram for numeric data distribution
+  if (numericColumns.length > 0) {
+    charts.push({
+      type: 'histogram',
+      x: numericColumns[0].name,
+      y: null,
+      series: null,
+      title: `Distribution of ${numericColumns[0].name}`,
+      transform_x: 'bin:auto',
+      transform_y: 'count',
+      rationale: `Shows the frequency distribution of ${numericColumns[0].name} values`
+    });
+  }
+
+  // Generate multi-chart configuration
+  return {
+    title: "Data Analysis Dashboard",
+    description: `Generated ${charts.length} visualizations from ${columns.length} columns and ${data_snippet.length} data points`,
+    charts: charts
+  };
 }

@@ -1014,11 +1014,50 @@ type HorizontalBarDatum = {
   series?: string; // Optional series for multi-series support
 };
 
+// Responsive Horizontal Bar Chart Component
+const ResponsiveHorizontalBarChart: React.FC<{ data: HorizontalBarDatum[], config: ChartConfig }> = ({ data, config }) => {
+  const [dimensions, setDimensions] = React.useState({ width: 800, height: 500 });
+
+  React.useEffect(() => {
+    const updateDimensions = () => {
+      const container = document.querySelector('.chart-container');
+      if (container) {
+        const rect = container.getBoundingClientRect();
+        setDimensions({
+          width: Math.max(600, rect.width - 40), // Minimum 600px, subtract padding
+          height: Math.max(400, Math.min(600, data.length * 40 + 160)) // Dynamic height based on data
+        });
+      } else {
+        // Fallback to window width
+        setDimensions({
+          width: Math.max(600, window.innerWidth - 200), // Account for sidebar/margins
+          height: Math.max(400, Math.min(600, data.length * 40 + 160))
+        });
+      }
+    };
+
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, [data.length]);
+
+  return <HorizontalBarChart data={data} config={config} width={dimensions.width} height={dimensions.height} />;
+};
+
 // Horizontal Bar Chart Component (separate component to use hooks properly)
-const HorizontalBarChart: React.FC<{ data: HorizontalBarDatum[], config: ChartConfig }> = ({ data, config }) => {
-  const width = 800;
-  const height = 500;
-  const margin = { top: 40, right: 150, bottom: 80, left: 120 };
+const HorizontalBarChart: React.FC<{ data: HorizontalBarDatum[], config: ChartConfig, width?: number, height?: number }> = ({ 
+  data, 
+  config, 
+  width = 800, 
+  height = 500 
+}) => {
+  // Dynamic margins based on chart width
+  const margin = { 
+    top: 40, 
+    right: width > 600 ? 150 : 80, 
+    bottom: 80, 
+    left: Math.max(120, width * 0.15) // 15% of width or minimum 120px
+  };
   
   // Check if we have series data for multi-series charts
   const hasSeries = data.length > 0 && data[0].series !== null && data[0].series !== undefined;
@@ -1070,8 +1109,8 @@ const HorizontalBarChart: React.FC<{ data: HorizontalBarDatum[], config: ChartCo
   };
 
   return (
-    <div style={{ position: 'relative' }}>
-      <svg width={width} height={height}>
+    <div style={{ position: 'relative', width: '100%', display: 'flex', justifyContent: 'center' }}>
+      <svg width={width} height={height} style={{ display: 'block', margin: '0 auto' }}>
         <Group left={margin.left} top={margin.top}>
           {/* Grid lines */}
           {xScale.ticks(5).map((tickValue) => (
@@ -1108,13 +1147,21 @@ const HorizontalBarChart: React.FC<{ data: HorizontalBarDatum[], config: ChartCo
                 strokeWidth={1}
                 style={{ cursor: 'pointer' }}
                 onMouseEnter={(event) => {
-                  const svgRect = event.currentTarget.ownerSVGElement?.getBoundingClientRect();
-                  const tooltipLeft = (svgRect?.left || 0) + margin.left + barW + 10;
-                  const tooltipTop = (svgRect?.top || 0) + margin.top + barY + barH / 2;
+                  const mouseX = event.clientX;
+                  const mouseY = event.clientY;
                   showTooltip({
                     tooltipData: d,
-                    tooltipLeft,
-                    tooltipTop,
+                    tooltipLeft: mouseX,
+                    tooltipTop: mouseY - 10, // Position above mouse cursor
+                  });
+                }}
+                onMouseMove={(event) => {
+                  const mouseX = event.clientX;
+                  const mouseY = event.clientY;
+                  showTooltip({
+                    tooltipData: d,
+                    tooltipLeft: mouseX,
+                    tooltipTop: mouseY - 10, // Follow mouse movement
                   });
                 }}
                 onMouseLeave={hideTooltip}
@@ -1153,7 +1200,7 @@ const HorizontalBarChart: React.FC<{ data: HorizontalBarDatum[], config: ChartCo
           {/* Axis Labels */}
           <text
             x={innerW / 2}
-            y={innerH + 40}
+            y={innerH + 60}
             fill="#666"
             fontSize={14}
             fontWeight="bold"
@@ -1162,13 +1209,13 @@ const HorizontalBarChart: React.FC<{ data: HorizontalBarDatum[], config: ChartCo
             {config.x || 'Value'}
           </text>
           <text
-            x={-innerH / 2}
-            y={-60}
+            x={-margin.left + 20}
+            y={innerH / 2}
             fill="#666"
             fontSize={14}
             fontWeight="bold"
             textAnchor="middle"
-            transform={`rotate(-90, ${-innerH / 2}, -60)`}
+            transform={`rotate(-90, ${-margin.left + 20}, ${innerH / 2})`}
           >
             {config.y || 'Category'}
           </text>
@@ -1236,7 +1283,7 @@ const HorizontalBarChart: React.FC<{ data: HorizontalBarDatum[], config: ChartCo
 };
 
 const renderHorizontalBarChart = (data: HorizontalBarDatum[], config: ChartConfig) => {
-  return <HorizontalBarChart data={data} config={config} />;
+  return <ResponsiveHorizontalBarChart data={data} config={config} />;
 };
 
 const renderFallbackChart = (data: any[], config: ChartConfig) => {

@@ -9,8 +9,9 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { AlertCircle, Info, TestTube, BarChart3, Play } from 'lucide-react';
 
-// Import the chart rendering component
+// Import the chart rendering components
 import { ChartRenderer, ChartConfig } from '@/components/charts/chart-renderer';
+import { MultiChartRenderer, MultiChartConfig } from '@/components/charts/multi-chart-renderer';
 import { transformData } from '@/lib/chart-transformations';
 
 const sampleData = [
@@ -169,7 +170,7 @@ export default function ChartTestLive() {
   const [dataInput, setDataInput] = useState(JSON.stringify(sampleData, null, 2));
   const [configInput, setConfigInput] = useState(JSON.stringify(sampleConfigs[0], null, 2));
   const [parsedData, setParsedData] = useState<any[]>([]);
-  const [parsedConfig, setParsedConfig] = useState<ChartConfig | null>(null);
+  const [parsedConfig, setParsedConfig] = useState<ChartConfig | MultiChartConfig | null>(null);
   const [transformedData, setTransformedData] = useState<any>(null);
   const [showTransformedData, setShowTransformedData] = useState(false);
   const [error, setError] = useState<string>('');
@@ -216,19 +217,53 @@ export default function ChartTestLive() {
         throw new Error('Data must be an array of objects');
       }
       
-      // Parse config
+      // Parse config - support both single chart and multi-chart formats
       const config = JSON.parse(configInput);
-      if (!config.type || !config.x || !config.title) {
-        throw new Error('Config must have at least type, x, and title fields');
+      
+      // Check if it's a multi-chart configuration
+      if (config.charts && Array.isArray(config.charts)) {
+        // Multi-chart configuration
+        if (!config.title || !config.charts.length) {
+          throw new Error('Multi-chart config must have title and charts array');
+        }
+        // Validate each chart in the array
+        config.charts.forEach((chart: any, index: number) => {
+          if (!chart.type || !chart.x || !chart.title) {
+            throw new Error(`Chart ${index + 1} must have at least type, x, and title fields`);
+          }
+        });
+        setParsedData(data);
+        setParsedConfig(config);
+        setSuccess('Multi-chart configuration generated successfully!');
+      } else if (Array.isArray(config)) {
+        // Array of single charts - convert to multi-chart format
+        config.forEach((chart: any, index: number) => {
+          if (!chart.type || !chart.x || !chart.title) {
+            throw new Error(`Chart ${index + 1} must have at least type, x, and title fields`);
+          }
+        });
+        // Convert to multi-chart format
+        const multiConfig = {
+          title: "Chart Dashboard",
+          description: `Generated ${config.length} visualizations`,
+          charts: config
+        };
+        setParsedData(data);
+        setParsedConfig(multiConfig);
+        setSuccess('Multi-chart configuration generated successfully!');
+      } else {
+        // Single chart configuration
+        if (!config.type || !config.x || !config.title) {
+          throw new Error('Config must have at least type, x, and title fields');
+        }
+        
+        // Apply transformation for single chart
+        const transformed = transformData(data, config);
+        setParsedData(data);
+        setParsedConfig(config);
+        setTransformedData(transformed);
+        setSuccess('Chart generated and transformed successfully!');
       }
-      
-      // Apply transformation
-      const transformed = transformData(data, config);
-      
-      setParsedData(data);
-      setParsedConfig(config);
-      setTransformedData(transformed);
-      setSuccess('Chart generated and transformed successfully!');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate chart');
       setParsedData([]);
@@ -530,11 +565,19 @@ export default function ChartTestLive() {
                 </div>
                 
                 {/* Chart Display */}
-                <ChartRenderer
-                  data={parsedData}
-                  config={parsedConfig}
-                  height={600}
-                />
+                {parsedConfig && 'charts' in parsedConfig ? (
+                  <MultiChartRenderer
+                    data={parsedData}
+                    config={parsedConfig}
+                    height={600}
+                  />
+                ) : (
+                  <ChartRenderer
+                    data={parsedData}
+                    config={parsedConfig as ChartConfig}
+                    height={600}
+                  />
+                )}
               </div>
             ) : (
               <Card>

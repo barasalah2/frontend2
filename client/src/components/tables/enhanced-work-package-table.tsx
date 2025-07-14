@@ -1,10 +1,11 @@
 import { useState, useMemo } from "react";
-import { ChevronUp, ChevronDown, Search, Filter, X } from "lucide-react";
+import { ChevronUp, ChevronDown, Search, Filter, X, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 
 interface EnhancedWorkPackageTableProps {
@@ -106,6 +107,53 @@ export function EnhancedWorkPackageTable({ data, conversationId }: EnhancedWorkP
     setSortDirection(null);
   };
 
+  const generateVisualization = async () => {
+    if (!data || data.length === 0) {
+      toast({
+        title: "No data available",
+        description: "Please ensure there is data to visualize.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const columns = Object.keys(data[0]);
+      const dataSnippet = data.slice(0, 100); // Use first 100 rows for analysis
+      
+      const response = await fetch('/api/datavis', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          columns: columns.map(col => ({ name: col })),
+          data_snippet: dataSnippet,
+          conversation_id: conversationId,
+          save_chart: true
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+
+      toast({
+        title: "Visualization Generated",
+        description: `Created ${result.visualizations.charts.length} charts from your data.`,
+      });
+    } catch (error) {
+      console.error("Error generating visualization:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate visualization. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
 
 
 
@@ -151,6 +199,14 @@ export function EnhancedWorkPackageTable({ data, conversationId }: EnhancedWorkP
               Clear
             </Button>
           )}
+          <Button 
+            onClick={generateVisualization}
+            size="sm"
+            className="bg-workpack-blue hover:bg-blue-700 text-white"
+          >
+            <BarChart3 className="h-4 w-4 mr-2" />
+            Generate Charts
+          </Button>
         </div>
       </div>
 

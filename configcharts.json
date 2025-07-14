@@ -1,0 +1,94 @@
+[
+  {
+    "type": "bar",
+    "x": "status",
+    "y": "iwp_id",
+    "series": null,
+    "title": "Count of IWPs by Status",
+    "transform_x": null,
+    "transform_y": "count",
+    "rationale": "Shows how many IWPs exist for each status category."
+  },
+  {
+    "type": "horizontal_bar",
+    "x": "total_tag_qty",
+    "y": "iwp_id",
+    "series": null,
+    "title": "Total Tag Quantity per IWP",
+    "transform_x": null,
+    "transform_y": null,
+    "rationale": "Ranks IWPs by total tag quantities."
+  },
+  {
+    "type": "line",
+    "x": "iwp_plan_date",
+    "y": "total_tag_qty",
+    "series": "cwp_name",
+    "title": "Planned Tag Quantities Over Time by CWP",
+    "transform_x": "date_group:month_year",
+    "transform_y": "sum",
+    "rationale": "Tracks tag workload trends over time for each CWP."
+  },
+  {
+    "type": "area",
+    "x": "iwp_plan_date",
+    "y": "tag_count",
+    "series": "status",
+    "title": "Stacked Tag Count Over Time by Status",
+    "transform_x": "date_group:month_year",
+    "transform_y": "sum",
+    "rationale": "Shows cumulative tag counts over time grouped by IWP status."
+  },
+  {
+    "type": "pie",
+    "x": "cwp_name",
+    "y": "total_tag_qty",
+    "series": null,
+    "title": "Tag Quantity Share by CWP",
+    "transform_x": null,
+    "transform_y": "sum",
+    "rationale": "Visualizes how total tag quantity is split among CWPs."
+  },
+  {
+    "type": "gantt",
+    "x": "iwp_plan_date",
+    "x2": "iwp_plan_finish_date",
+    "y": "iwp_id",
+    "series": "cwp_name",
+    "title": "Planned IWP Timelines by CWP",
+    "transform_x": null,
+    "transform_y": null,
+    "rationale": "Shows planned project durations by IWP grouped by CWP."
+  },
+  {
+    "type": "dumbbell",
+    "x": "iwp_plan_finish_date",
+    "x2": "iwp_actual_finish_date",
+    "y": "iwp_id",
+    "series": "cwp_name",
+    "title": "Planned vs Actual Finish Dates by IWP",
+    "transform_x": null,
+    "transform_y": null,
+    "rationale": "Compares planned and actual finish dates to highlight delays."
+  },
+  {
+    "type": "scatter",
+    "x": "iwp_actual_finish_date",
+    "y": "total_tag_qty",
+    "series": "cwp_name",
+    "title": "Actual Finish Date vs Tag Quantity by CWP",
+    "transform_x": "date_group:month_year",
+    "transform_y": null,
+    "rationale": "Explores correlation between completion time and tag workload."
+  },
+  {
+    "type": "histogram",
+    "x": "total_tag_qty",
+    "y": null,
+    "series": null,
+    "title": "Distribution of Total Tag Quantities",
+    "transform_x": "bin:auto",
+    "transform_y": "count",
+    "rationale": "Shows how tag quantities are spread across IWPs."
+  }
+]

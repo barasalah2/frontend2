@@ -248,7 +248,7 @@ const applySimultaneousGrouping = (
   // Note: For other y-transforms like date_group, alphabetical, frequency, etc.
   // no additional filtering is needed - the transformation was already applied in Step 1
 
-  // Step 6: Sort alphabetically by x field, then y field, then series field
+  // Step 6: Sort alphabetically by x field, then y field, then series field (for grouping columns only)
   return filteredCombinations.sort((a, b) => {
     const xCompare = String(a[xField]).localeCompare(String(b[xField]));
     if (xCompare !== 0) return xCompare;
@@ -592,20 +592,8 @@ const applyUnifiedAggregation = (
     return groupResult;
   });
 
-  // Always sort grouped values alphabetically by group field, then series field
-  return result.sort((a, b) => {
-    const groupCompare = String(a[groupField]).localeCompare(
-      String(b[groupField]),
-    );
-    if (groupCompare !== 0) return groupCompare;
-
-    // If series field exists, sort by series value as well
-    if (seriesField) {
-      return String(a[seriesField]).localeCompare(String(b[seriesField]));
-    }
-
-    return 0;
-  });
+  // Return result without sorting - sorting should only be applied to grouping columns
+  return result;
 };
 
 // Core aggregation calculation function
@@ -649,7 +637,7 @@ export const applyTopKWithAggregation = (
   k: number,
   aggTransform: string,
 ): any[] => {
-  // Apply unified aggregation to get all groups (already sorted alphabetically)
+  // Apply unified aggregation to get all groups
   const aggregated = applyUnifiedAggregation(
     data,
     groupField,
@@ -658,7 +646,7 @@ export const applyTopKWithAggregation = (
     aggTransform,
   );
 
-  // Sort by count or aggregated value and take top K
+  // Sort by count or aggregated value and take top K (for grouping columns only)
   const sortField = aggField && aggTransform !== "count" ? "value" : "count";
   const sorted = aggregated.sort((a, b) => b[sortField] - a[sortField]);
 
@@ -673,7 +661,7 @@ export const applyBottomKWithAggregation = (
   k: number,
   aggTransform: string,
 ): any[] => {
-  // Apply unified aggregation to get all groups (already sorted alphabetically)
+  // Apply unified aggregation to get all groups
   const aggregated = applyUnifiedAggregation(
     data,
     groupField,
@@ -682,7 +670,7 @@ export const applyBottomKWithAggregation = (
     aggTransform,
   );
 
-  // Sort by count or aggregated value (ascending for bottom K) and take bottom K
+  // Sort by count or aggregated value (ascending for bottom K) and take bottom K (for grouping columns only)
   const sortField = aggField && aggTransform !== "count" ? "value" : "count";
   const sorted = aggregated.sort((a, b) => a[sortField] - b[sortField]);
 
@@ -803,14 +791,29 @@ export const applyAlphabeticalWithAggregation = (
   seriesField: string | null,
   aggTransform: string,
 ): any[] => {
-  // Apply unified aggregation (already sorted alphabetically)
-  return applyUnifiedAggregation(
+  // Apply unified aggregation
+  const aggregated = applyUnifiedAggregation(
     data,
     groupField,
     aggField,
     seriesField,
     aggTransform,
   );
+
+  // Sort alphabetically by group field, then series field (for grouping columns only)
+  return aggregated.sort((a, b) => {
+    const groupCompare = String(a[groupField]).localeCompare(
+      String(b[groupField]),
+    );
+    if (groupCompare !== 0) return groupCompare;
+
+    // If series field exists, sort by series value as well
+    if (seriesField) {
+      return String(a[seriesField]).localeCompare(String(b[seriesField]));
+    }
+
+    return 0;
+  });
 };
 
 export const applyFrequencyWithAggregation = (
@@ -820,7 +823,7 @@ export const applyFrequencyWithAggregation = (
   seriesField: string | null,
   aggTransform: string,
 ): any[] => {
-  // Apply unified aggregation (already sorted alphabetically)
+  // Apply unified aggregation
   const aggregated = applyUnifiedAggregation(
     data,
     groupField,
@@ -829,7 +832,7 @@ export const applyFrequencyWithAggregation = (
     aggTransform,
   );
 
-  // Sort by frequency (count) in descending order
+  // Sort by frequency (count) in descending order for grouping columns only
   return aggregated.sort((a, b) => b.count - a.count);
 };
 

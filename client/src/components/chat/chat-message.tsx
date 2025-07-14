@@ -3,9 +3,11 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EnhancedWorkPackageTable } from "@/components/tables/enhanced-work-package-table";
+import { MultiChartRenderer } from "@/components/charts/multi-chart-renderer";
+import { ChartRenderer } from "@/components/charts/chart-renderer";
 
 import { type Message } from "@shared/schema";
-import { Bot, User, Download, AlertCircle } from "lucide-react";
+import { Bot, User, Download, AlertCircle, BarChart3 } from "lucide-react";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { exportToExcel } from "@/lib/excel-export";
@@ -26,6 +28,12 @@ export function ChatMessage({ message, conversationId }: ChatMessageProps) {
     message.data.table && 
     Array.isArray(message.data.table) && 
     message.data.table.length > 0;
+
+  const hasVisualizationData = message.messageType === "visualization" && 
+    message.data && 
+    message.data.charts && 
+    Array.isArray(message.data.charts) && 
+    message.data.charts.length > 0;
 
 
 
@@ -132,7 +140,38 @@ export function ChatMessage({ message, conversationId }: ChatMessageProps) {
             </motion.div>
           )}
 
-
+          {/* Multi-Chart Visualization */}
+          {hasVisualizationData && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="mt-4"
+            >
+              <div className="bg-gray-50 dark:bg-slate-900 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-semibold workpack-text dark:text-white flex items-center">
+                    <BarChart3 className="h-4 w-4 mr-2 text-workpack-blue" />
+                    Data Visualization
+                  </h4>
+                  <Badge variant="secondary" className="text-workpack-blue">
+                    {message.data.charts.length} Chart{message.data.charts.length > 1 ? 's' : ''}
+                  </Badge>
+                </div>
+                
+                {/* Always use MultiChartRenderer for consistency */}
+                <MultiChartRenderer
+                  data={message.data.originalData || []}
+                  config={{
+                    title: message.data.title || "Data Analysis Dashboard",
+                    description: message.data.description || `Generated ${message.data.charts.length} visualization${message.data.charts.length > 1 ? 's' : ''}`,
+                    charts: message.data.charts
+                  }}
+                  height={400}
+                />
+              </div>
+            </motion.div>
+          )}
 
           {/* Analysis Summary */}
           {isBot && hasTableData && (
