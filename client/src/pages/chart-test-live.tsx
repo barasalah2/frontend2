@@ -7,7 +7,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Info, TestTube } from 'lucide-react';
+import { AlertCircle, Info, TestTube, BarChart3, Play } from 'lucide-react';
 
 // Import the chart rendering component
 import { ChartRenderer, ChartConfig } from '@/components/charts/chart-renderer';
@@ -171,6 +171,7 @@ export default function ChartTestLive() {
   const [showTransformedData, setShowTransformedData] = useState(false);
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const handleGenerate = useCallback(() => {
     try {
@@ -197,6 +198,41 @@ export default function ChartTestLive() {
       setParsedData([]);
       setParsedConfig(null);
       setTransformedData(null);
+    }
+  }, [dataInput, configInput]);
+
+  const handleGenerateChart = useCallback(async () => {
+    setIsGenerating(true);
+    try {
+      setError('');
+      setSuccess('');
+      
+      // Parse data
+      const data = JSON.parse(dataInput);
+      if (!Array.isArray(data)) {
+        throw new Error('Data must be an array of objects');
+      }
+      
+      // Parse config
+      const config = JSON.parse(configInput);
+      if (!config.type || !config.x || !config.title) {
+        throw new Error('Config must have at least type, x, and title fields');
+      }
+      
+      // Apply transformation
+      const transformed = transformData(data, config);
+      
+      setParsedData(data);
+      setParsedConfig(config);
+      setTransformedData(transformed);
+      setSuccess('Chart generated and transformed successfully!');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate chart');
+      setParsedData([]);
+      setParsedConfig(null);
+      setTransformedData(null);
+    } finally {
+      setIsGenerating(false);
     }
   }, [dataInput, configInput]);
 
@@ -247,7 +283,12 @@ export default function ChartTestLive() {
             <TabsTrigger value="input">Input & Config</TabsTrigger>
             <TabsTrigger value="examples">Sample Configs</TabsTrigger>
             <TabsTrigger value="transform">Data Transform</TabsTrigger>
-            <TabsTrigger value="result">Chart Output</TabsTrigger>
+            <TabsTrigger value="result" className="relative">
+              Chart Output
+              {parsedConfig && parsedData.length > 0 && (
+                <div className="absolute -top-1 -right-1 h-2 w-2 bg-green-500 rounded-full"></div>
+              )}
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="input" className="space-y-4">
@@ -302,16 +343,41 @@ export default function ChartTestLive() {
             </div>
 
             {/* Actions */}
-            <div className="flex gap-4">
-              <Button onClick={handleGenerate} className="flex-1">
-                Parse & Validate
-              </Button>
-              <Button onClick={handleTransformData} variant="secondary" disabled={!parsedData.length || !parsedConfig}>
-                Transform Data
-              </Button>
-              <Button onClick={resetToDefaults} variant="outline">
-                Reset to Sample
-              </Button>
+            <div className="space-y-4">
+              {/* Primary Generate Chart Button */}
+              <div className="flex gap-4">
+                <Button 
+                  onClick={handleGenerateChart} 
+                  className="flex-1 h-12 text-lg"
+                  disabled={isGenerating}
+                >
+                  {isGenerating ? (
+                    <>
+                      <div className="animate-spin h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full" />
+                      Generating Chart...
+                    </>
+                  ) : (
+                    <>
+                      <BarChart3 className="h-5 w-5 mr-2" />
+                      Generate Chart
+                    </>
+                  )}
+                </Button>
+              </div>
+              
+              {/* Secondary Actions */}
+              <div className="flex gap-4">
+                <Button onClick={handleGenerate} variant="secondary" className="flex-1">
+                  <Play className="h-4 w-4 mr-2" />
+                  Parse & Validate
+                </Button>
+                <Button onClick={handleTransformData} variant="secondary" disabled={!parsedData.length || !parsedConfig}>
+                  Transform Data
+                </Button>
+                <Button onClick={resetToDefaults} variant="outline">
+                  Reset to Sample
+                </Button>
+              </div>
             </div>
 
             {/* Status Messages */}
@@ -434,17 +500,59 @@ export default function ChartTestLive() {
 
           <TabsContent value="result" className="space-y-4">
             {parsedConfig && parsedData.length > 0 ? (
-              <ChartRenderer
-                data={parsedData}
-                config={parsedConfig}
-                height={600}
-              />
+              <div className="space-y-6">
+                {/* Quick Actions */}
+                <div className="flex justify-between items-center">
+                  <h2 className="text-xl font-semibold">Generated Chart</h2>
+                  <div className="flex gap-2">
+                    <Button 
+                      onClick={handleGenerateChart} 
+                      variant="outline" 
+                      size="sm"
+                      disabled={isGenerating}
+                    >
+                      {isGenerating ? (
+                        <>
+                          <div className="animate-spin h-3 w-3 mr-2 border-2 border-current border-t-transparent rounded-full" />
+                          Regenerating...
+                        </>
+                      ) : (
+                        <>
+                          <BarChart3 className="h-4 w-4 mr-2" />
+                          Regenerate Chart
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+                
+                {/* Chart Display */}
+                <ChartRenderer
+                  data={parsedData}
+                  config={parsedConfig}
+                  height={600}
+                />
+              </div>
             ) : (
               <Card>
                 <CardContent className="p-8 text-center">
                   <div className="text-muted-foreground">
                     <TestTube className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No chart generated yet. Please provide data and configuration in the Input tab.</p>
+                    <h3 className="text-lg font-medium mb-2">No Chart Generated</h3>
+                    <p className="mb-4">Use the "Generate Chart" button in the Input tab to create your visualization.</p>
+                    <Button onClick={handleGenerateChart} disabled={isGenerating}>
+                      {isGenerating ? (
+                        <>
+                          <div className="animate-spin h-4 w-4 mr-2 border-2 border-current border-t-transparent rounded-full" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <BarChart3 className="h-4 w-4 mr-2" />
+                          Generate Chart Now
+                        </>
+                      )}
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
