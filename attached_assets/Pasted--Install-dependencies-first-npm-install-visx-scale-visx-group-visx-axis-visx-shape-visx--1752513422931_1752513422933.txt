@@ -1,0 +1,96 @@
+// Install dependencies first:
+// npm install @visx/scale @visx/group @visx/axis @visx/shape @visx/tooltip d3-time-format
+
+import React from "react";
+import { scaleBand, scaleTime, scaleOrdinal } from "@visx/scale";
+import { Group } from "@visx/group";
+import { AxisBottom, AxisLeft } from "@visx/axis";
+import { Bar } from "@visx/shape";
+import { timeParse, timeFormat } from "d3-time-format";
+
+type GanttData = {
+  x: string;     // Start date
+  x2: string;    // End date
+  y: string;     // IWP ID
+  series: string; // CWP Name
+};
+
+type GanttProps = {
+  data: GanttData[];
+  width?: number;
+  height?: number;
+};
+
+const parseDate = timeParse("%Y-%m-%d");
+const formatDate = timeFormat("%b %d");
+
+const GanttChart: React.FC<GanttProps> = ({ data, width = 1000, height = 500 }) => {
+  // Parse dates
+  const parsedData = data.map(d => ({
+    ...d,
+    x: parseDate(d.x)!,
+    x2: parseDate(d.x2)!,
+  }));
+
+  const margin = { top: 40, left: 120, right: 40, bottom: 50 };
+  const innerWidth = width - margin.left - margin.right;
+  const innerHeight = height - margin.top - margin.bottom;
+
+  // Unique Y values (tasks)
+  const tasks = [...new Set(parsedData.map(d => d.y))];
+  const yScale = scaleBand<string>({
+    domain: tasks,
+    range: [0, innerHeight],
+    padding: 0.3,
+  });
+
+  const xExtent: [Date, Date] = [
+    new Date(Math.min(...parsedData.map(d => d.x.getTime()))),
+    new Date(Math.max(...parsedData.map(d => d.x2.getTime()))),
+  ];
+  const xScale = scaleTime({
+    domain: xExtent,
+    range: [0, innerWidth],
+  });
+
+  const colorScale = scaleOrdinal<string, string>({
+    domain: [...new Set(parsedData.map(d => d.series))],
+    range: ["#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14f", "#edc948"],
+  });
+
+  return (
+    <svg width={width} height={height}>
+      <Group top={margin.top} left={margin.left}>
+        {/* Bars */}
+        {parsedData.map((d, i) => {
+          const barY = yScale(d.y);
+          const barX = xScale(d.x);
+          const barWidth = xScale(d.x2) - xScale(d.x);
+          const barHeight = yScale.bandwidth();
+
+          return (
+            <Bar
+              key={i}
+              x={barX}
+              y={barY}
+              width={barWidth}
+              height={barHeight}
+              fill={colorScale(d.series)}
+              rx={4}
+            />
+          );
+        })}
+
+        {/* Axes */}
+        <AxisBottom
+          top={innerHeight}
+          scale={xScale}
+          tickFormat={formatDate}
+        />
+        <AxisLeft scale={yScale} />
+      </Group>
+    </svg>
+  );
+};
+
+export default GanttChart;

@@ -19,6 +19,12 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from 'recharts';
+import { scaleBand, scaleTime, scaleOrdinal } from "@visx/scale";
+import { Group } from "@visx/group";
+import { AxisBottom, AxisLeft } from "@visx/axis";
+import { Bar as VisxBar } from "@visx/shape";
+import { useTooltip, TooltipWithBounds, defaultStyles } from "@visx/tooltip";
+import { timeParse, timeFormat } from "d3-time-format";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle, Info } from 'lucide-react';
@@ -48,6 +54,267 @@ const COLORS = [
   '#d084d0', '#ffb347', '#87ceeb', '#dda0dd', '#f0e68c',
   '#ff6347', '#40e0d0', '#ee82ee', '#90ee90', '#ffd700'
 ];
+
+// visx-based GanttChart Component
+type GanttData = {
+  x: string;     // Start date
+  x2: string;    // End date
+  y: string;     // IWP ID
+  series: string; // CWP Name
+};
+
+type GanttProps = {
+  data: GanttData[];
+  config: ChartConfig;
+  width?: number;
+  height?: number;
+};
+
+const parseDate = timeParse("%Y-%m-%d");
+const formatDate = timeFormat("%b %d");
+
+const ResponsiveGanttChart: React.FC<Omit<GanttProps, 'width' | 'height'>> = ({ data, config }) => {
+  const [dimensions, setDimensions] = React.useState({ width: 800, height: 500 });
+
+  React.useEffect(() => {
+    const updateDimensions = () => {
+      const container = document.querySelector('.chart-container');
+      if (container) {
+        const rect = container.getBoundingClientRect();
+        setDimensions({
+          width: Math.max(600, rect.width - 40), // Minimum 600px, subtract padding
+          height: 500
+        });
+      } else {
+        // Fallback to window width
+        setDimensions({
+          width: Math.max(600, window.innerWidth - 200), // Account for sidebar/margins
+          height: 500
+        });
+      }
+    };
+
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, []);
+
+  return <GanttChart data={data} config={config} width={dimensions.width} height={dimensions.height} />;
+};
+
+const GanttChart: React.FC<GanttProps> = ({ data, config, width = 800, height = 500 }) => {
+  // Handle empty data
+  if (!data || data.length === 0) {
+    return (
+      <div style={{ width, height, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: '#666', fontSize: '14px' }}>No data available for Gantt chart</p>
+      </div>
+    );
+  }
+
+  // Parse dates with error handling
+  const parsedData = data.map(d => {
+    const startDate = parseDate(d.x);
+    const endDate = parseDate(d.x2);
+    
+    // If parsing fails, try direct Date parsing as fallback
+    const fallbackStart = startDate || new Date(d.x);
+    const fallbackEnd = endDate || new Date(d.x2);
+    
+    return {
+      ...d,
+      x: fallbackStart,
+      x2: fallbackEnd,
+    };
+  }).filter(d => d.x && d.x2 && !isNaN(d.x.getTime()) && !isNaN(d.x2.getTime()));
+
+  // Handle case where all dates failed to parse
+  if (parsedData.length === 0) {
+    return (
+      <div style={{ width, height, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: '#666', fontSize: '14px' }}>Invalid date format in data</p>
+      </div>
+    );
+  }
+
+  const margin = { top: 40, left: 120, right: 150, bottom: 50 };
+  const innerWidth = width - margin.left - margin.right;
+  const innerHeight = height - margin.top - margin.bottom;
+
+  // Unique Y values (tasks)
+  const tasks = [...new Set(parsedData.map(d => d.y))];
+  const yScale = scaleBand<string>({
+    domain: tasks,
+    range: [0, innerHeight],
+    padding: 0.3,
+  });
+
+  const xExtent: [Date, Date] = [
+    new Date(Math.min(...parsedData.map(d => d.x.getTime()))),
+    new Date(Math.max(...parsedData.map(d => d.x2.getTime()))),
+  ];
+  const xScale = scaleTime({
+    domain: xExtent,
+    range: [0, innerWidth],
+  });
+
+  const seriesNames = [...new Set(parsedData.map(d => d.series))];
+  const colorScale = scaleOrdinal<string, string>({
+    domain: seriesNames,
+    range: COLORS,
+  });
+
+  const {
+    tooltipData,
+    tooltipLeft,
+    tooltipTop,
+    tooltipOpen,
+    showTooltip,
+    hideTooltip,
+  } = useTooltip<any>();
+
+  const tooltipStyles = {
+    ...defaultStyles,
+    background: 'rgba(0, 0, 0, 0.9)',
+    color: 'white',
+    border: 'none',
+    borderRadius: '4px',
+    padding: '8px 12px',
+    fontSize: '12px',
+  };
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <svg width={width} height={height}>
+        <Group top={margin.top} left={margin.left}>
+          {/* Grid lines */}
+          {xScale.ticks().map((tick, i) => (
+            <line
+              key={`grid-x-${i}`}
+              x1={xScale(tick)}
+              x2={xScale(tick)}
+              y1={0}
+              y2={innerHeight}
+              stroke="#e0e0e0"
+              strokeDasharray="3,3"
+              strokeWidth={1}
+              opacity={0.6}
+            />
+          ))}
+          
+          {/* Bars */}
+          {parsedData.map((d, i) => {
+            const barY = yScale(d.y);
+            const barX = xScale(d.x);
+            const barWidth = xScale(d.x2) - xScale(d.x);
+            const barHeight = yScale.bandwidth();
+
+            return (
+              <VisxBar
+                key={i}
+                x={barX}
+                y={barY}
+                width={barWidth}
+                height={barHeight}
+                fill={colorScale(d.series)}
+                rx={3}
+                stroke="#fff"
+                strokeWidth={1}
+                style={{ cursor: 'pointer' }}
+                onMouseEnter={(event) => {
+                  showTooltip({
+                    tooltipData: d,
+                    tooltipLeft: barX + barWidth / 2,
+                    tooltipTop: barY + barHeight / 2,
+                  });
+                }}
+                onMouseLeave={() => hideTooltip()}
+              />
+            );
+          })}
+
+          {/* Axes */}
+          <AxisBottom
+            top={innerHeight}
+            scale={xScale}
+            tickFormat={formatDate}
+            stroke="#666"
+            tickStroke="#666"
+            tickLabelProps={() => ({
+              fill: '#666',
+              fontSize: 12,
+              textAnchor: 'middle',
+            })}
+          />
+          <AxisLeft 
+            scale={yScale} 
+            stroke="#666"
+            tickStroke="#666"
+            tickLabelProps={() => ({
+              fill: '#666',
+              fontSize: 12,
+              textAnchor: 'end',
+              dx: -4,
+            })}
+          />
+        </Group>
+
+        {/* Legend */}
+        <Group top={margin.top} left={width - margin.right + 20}>
+          <text
+            x={0}
+            y={0}
+            fill="#666"
+            fontSize={14}
+            fontWeight="bold"
+            textAnchor="start"
+          >
+            {config.series || 'Series'}
+          </text>
+          {seriesNames.map((seriesName, i) => (
+            <Group key={seriesName} top={20 + i * 20}>
+              <rect
+                x={0}
+                y={-8}
+                width={12}
+                height={12}
+                fill={colorScale(seriesName)}
+                rx={2}
+              />
+              <text
+                x={18}
+                y={0}
+                fill="#666"
+                fontSize={12}
+                textAnchor="start"
+                dominantBaseline="middle"
+              >
+                {seriesName}
+              </text>
+            </Group>
+          ))}
+        </Group>
+      </svg>
+
+      {/* Tooltip */}
+      {tooltipOpen && tooltipData && (
+        <TooltipWithBounds
+          top={tooltipTop + margin.top}
+          left={tooltipLeft + margin.left}
+          style={tooltipStyles}
+        >
+          <div>
+            <div><strong>{tooltipData.y}</strong></div>
+            <div>Series: {tooltipData.series}</div>
+            <div>Start: {typeof tooltipData.x === 'string' ? tooltipData.x : tooltipData.x.toLocaleDateString()}</div>
+            <div>End: {typeof tooltipData.x2 === 'string' ? tooltipData.x2 : tooltipData.x2.toLocaleDateString()}</div>
+            <div>Duration: {Math.ceil((new Date(tooltipData.x2).getTime() - new Date(tooltipData.x).getTime()) / (1000 * 60 * 60 * 24))} days</div>
+          </div>
+        </TooltipWithBounds>
+      )}
+    </div>
+  );
+};
 
 // Pure chart rendering functions (no data transformations)
 const renderBarChart = (data: any[], config: ChartConfig) => {
@@ -405,52 +672,7 @@ const renderScatterChart = (data: any[], config: ChartConfig) => {
 };
 
 const renderGanttChart = (data: any[], config: ChartConfig) => {
-  // Process data using x and x2 from standardized format
-  const processedData = data.map(item => {
-    const start = item.x ? new Date(item.x).getTime() : 0;
-    const end = item.x2 ? new Date(item.x2).getTime() : start;
-    const duration = end - start;
-    
-    return {
-      name: item.y || 'Item', // Use y field for row labels
-      start,
-      duration,
-      end
-    };
-  });
-
-  return (
-    <ResponsiveContainer width="100%" height="100%">
-      <BarChart 
-        data={processedData} 
-        layout="horizontal"
-        margin={{ top: 20, right: 30, left: 80, bottom: 40 }}
-      >
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis 
-          type="number" 
-          domain={['dataMin', 'dataMax']} 
-          label={{ value: config.x, position: 'insideBottom', offset: -10, style: { textAnchor: 'middle' } }}
-        />
-        <YAxis 
-          type="category" 
-          dataKey="name" 
-          label={{ value: config.y, angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' } }}
-        />
-        <Tooltip 
-          labelFormatter={(label) => `${config.y}: ${label}`}
-          formatter={(value, name) => {
-            if (name === 'duration') {
-              return [new Date(value).toLocaleDateString(), `${config.x} - ${config.x2 || 'End'}`];
-            }
-            return [new Date(value).toLocaleDateString(), name];
-          }}
-        />
-        <Bar dataKey="start" stackId="gantt" fill="transparent" />
-        <Bar dataKey="duration" stackId="gantt" fill={COLORS[0]} />
-      </BarChart>
-    </ResponsiveContainer>
-  );
+  return <ResponsiveGanttChart data={data} config={config} />;
 };
 
 const renderDumbbellChart = (data: any[], config: ChartConfig) => {
@@ -511,13 +733,27 @@ const renderHistogram = (data: any[], config: ChartConfig) => {
     histogramData = processHistogramData(originalData, config.x);
   }
 
+  // Calculate bar width to fill the entire chart area
+  const containerWidth = 800; // Approximate chart width
+  const barWidth = Math.floor(containerWidth / histogramData.length);
+
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={histogramData} margin={{ top: 20, right: 30, left: 20, bottom: 40 }}>
+      <BarChart 
+        data={histogramData} 
+        margin={{ top: 20, right: 30, left: 20, bottom: 40 }}
+        categoryGap={0}
+        barGap={0}
+        barCategoryGap={0}
+      >
         <CartesianGrid strokeDasharray="3 3" />
         <XAxis 
           dataKey="bin" 
           label={{ value: config.x, position: 'insideBottom', offset: -10, style: { textAnchor: 'middle' } }}
+          tick={{ fontSize: 12 }}
+          interval={0}
+          axisLine={false}
+          tickLine={false}
         />
         <YAxis 
           label={{ value: 'Frequency', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' } }}
@@ -526,7 +762,15 @@ const renderHistogram = (data: any[], config: ChartConfig) => {
           labelFormatter={(label) => `${config.x} Range: ${label}`}
           formatter={(value, name) => [value, name === 'count' ? 'Frequency' : name]}
         />
-        <Bar dataKey="count" fill={COLORS[0]} />
+        <Bar 
+          dataKey="count" 
+          fill={COLORS[0]} 
+          stroke="#333"
+          strokeWidth={1}
+          radius={0}
+          minPointSize={0}
+          maxBarSize={barWidth}
+        />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -646,7 +890,7 @@ export function ChartRenderer({ data, config, height = 400, width = "100%" }: Ch
         </div>
       </CardHeader>
       <CardContent>
-        <div style={{ width, height: `${height}px` }}>
+        <div className="chart-container" style={{ width, height: `${height}px` }}>
           {renderChart()}
         </div>
       </CardContent>

@@ -3,6 +3,8 @@ import { ChartConfig } from "@/components/charts/chart-renderer";
 // Main transformation function that orchestrates all transformations
 export const transformData = (data: any[], config: ChartConfig): any => {
   let transformedData = [...data];
+  
+
 
   // Set default transforms if not provided
   if (!config.transform_x) {
@@ -12,8 +14,13 @@ export const transformData = (data: any[], config: ChartConfig): any => {
     config.transform_y = "topk:20";
   }
 
+  // Store original data before transformation for x2 field preservation
+  const originalData = [...data];
+  
   // Apply combined transformations (grouping + aggregation)
   transformedData = applyCombinedTransform(transformedData, config);
+
+
 
   // Return the complete configuration with transformed data
   return {
@@ -26,8 +33,8 @@ export const transformData = (data: any[], config: ChartConfig): any => {
     transform_x: config.transform_x || null,
     transform_y: config.transform_y || null,
     rationale: config.rationale || null,
-    data: transformedData.map((item) => {
-      return {
+    data: transformedData.map((item, index) => {
+      const result = {
         x: item[config.x],
         x2: config.x2 ? item[config.x2] : null,
         y: item[config.y],
@@ -35,6 +42,18 @@ export const transformData = (data: any[], config: ChartConfig): any => {
         count: item.count || undefined,
         value: item.value || undefined,
       };
+      
+      // If x2 is null/undefined, try to get it from original data
+      if (config.x2 && !result.x2 && originalData[index]) {
+        result.x2 = originalData[index][config.x2];
+      }
+      
+      // Apply x2 transformation if needed
+      if (config.x2 && config.transform_x && result.x2) {
+        result.x2 = transformSingleValue(result.x2, config.x2, config.transform_x);
+      }
+      
+      return result;
     }),
   };
 };
@@ -43,6 +62,7 @@ export const transformData = (data: any[], config: ChartConfig): any => {
 const applyCombinedTransform = (data: any[], config: ChartConfig): any[] => {
   const xField = config.x;
   const yField = config.y;
+  const x2Field = config.x2; // Add x2 field handling
   const seriesField = config.series;
   const xTransform = config.transform_x;
   const yTransform = config.transform_y;

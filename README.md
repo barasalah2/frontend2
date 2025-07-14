@@ -132,7 +132,13 @@ The application automatically loads sample work packages and conversations when 
 - **ChatMessage**: Displays individual chat messages with support for text, tables, and visualizations
 - **ChatInput**: Message input with validation and submission handling
 - **ConversationSidebar**: Navigation and conversation management
-- **DynamicChart**: Renders various chart types (scatter, bar, line, pie, histogram)
+- **ChartRenderer**: Renders various chart types with responsive design
+  - Standard charts: scatter, bar, line, pie, area, histogram
+  - Advanced charts: Gantt (visx-based), dumbbell, fallback rendering
+- **GanttChart**: Professional timeline visualization with visx library
+  - Interactive tooltips with task details and duration calculations
+  - Color-coded series support with legends
+  - Responsive width adaptation to window size
 - **WorkPackageTable**: Enhanced table with sorting, filtering, and export capabilities
 
 ### Conversation Categories
@@ -146,22 +152,62 @@ The application automatically loads sample work packages and conversations when 
 
 ### Chart Types Supported
 1. **Scatter Plot**: For correlation analysis between two variables
-2. **Bar Chart**: For categorical data comparison
-3. **Line Chart**: For trend analysis over time
-4. **Pie Chart**: For percentage distribution
-5. **Histogram**: For frequency distribution
+2. **Bar Chart**: For categorical data comparison (including grouped, stacked, and horizontal bars)
+3. **Line Chart**: For trend analysis over time with multi-series support
+4. **Area Chart**: For filled area visualizations showing trends
+5. **Pie Chart**: For percentage distribution and composition analysis
+6. **Histogram**: For frequency distribution with connected bars
+7. **Gantt Chart**: Professional timeline visualization using visx library with interactive features
+8. **Dumbbell Chart**: For comparing two values across categories
+9. **Fallback Charts**: Automatic fallback rendering for advanced chart types
 
 ### Transform Operations
-- **Date Grouping**: Group dates by month/year for time-series analysis
-- **Aggregation**: Sum, count, average operations
-- **Top-K**: Show top N results for better focus
-- **Filtering**: Dynamic data filtering by various criteria
+- **Date Grouping**: Group dates by year, quarter, month_year, month, day_of_week, or hour
+- **Aggregation**: Sum, count, mean, median, min, max, std operations
+- **Top-K/Bottom-K**: Show top/bottom N results for better focus
+- **Binning**: Automatic, quartile, or custom binning for continuous data
+- **Statistical**: Log scale, normalize, z-score transformations
+- **Categorical**: Alphabetical sorting, frequency sorting, other grouping
+- **X2 Field Support**: Dual-axis transformations for charts like Gantt timelines
 
 ### Advanced Features
-- **Interactive Charts**: Hover tooltips and responsive design
+- **Interactive Charts**: Hover tooltips, legends, and responsive design
+- **Professional Gantt Charts**: visx-based timeline visualization with series support
+- **Responsive Design**: Charts automatically adapt to window width
 - **Export Functionality**: Export charts and data to Excel
 - **Real-time Updates**: Dynamic chart generation based on live data
 - **Multiple Visualizations**: Display multiple charts simultaneously
+- **Enhanced Tooltips**: Detailed information on hover with duration calculations
+- **Series Support**: Multi-series charts with color-coded legends
+
+### Gantt Chart Implementation
+
+The application features a professional Gantt chart implementation using the visx library:
+
+#### Technical Features
+- **visx-based Architecture**: Built with @visx/scale, @visx/group, @visx/axis, @visx/shape
+- **Time-based Scaling**: Automatic time domain calculation from data extent
+- **Responsive Design**: Automatically adapts to window width (minimum 600px)
+- **Date Intelligence**: Robust date parsing with fallback mechanisms
+- **Error Handling**: Graceful handling of invalid dates and empty data
+
+#### Interactive Features
+- **Hover Tooltips**: Display task details, series, start/end dates, and duration
+- **Color-coded Series**: Different series (CWP names) get distinct colors
+- **Legend Support**: Right-side legend showing all series with color indicators
+- **Professional Styling**: Grid lines, rounded corners, and consistent theming
+
+#### Data Format Support
+```json
+{
+  "type": "gantt",
+  "x": "plan_start",      // Start date field
+  "x2": "plan_finish",    // End date field  
+  "y": "iwp_id",          // Task identifier
+  "series": "cwp_name",   // Series for color coding
+  "transform_x": "topk:20" // Optional transformations
+}
+```
 
 ## 🗃️ Data Management
 
@@ -283,7 +329,10 @@ npm start
 
 ### External Dependencies
 - **UI Components**: Extensive Radix UI primitives for accessibility
-- **Data Visualization**: Recharts for chart generation and rendering
+- **Data Visualization**: 
+  - Recharts for standard chart generation and rendering
+  - visx library for advanced Gantt chart timeline visualization
+  - d3-time-format for professional date formatting
 - **File Processing**: SheetJS (xlsx) for Excel import/export
 - **Date Handling**: date-fns for date manipulation and formatting
 - **Animation**: Framer Motion for smooth UI transitions
