@@ -5,8 +5,11 @@ A comprehensive full-stack web application that provides an AI-powered chat inte
 ## 🚀 Features
 
 - **AI-Powered Chat Interface**: Interactive conversations with intelligent responses about work packages
-- **Advanced Data Visualization**: Dynamic charts including scatter plots, bar charts, line charts, and pie charts
-- **Real-time Data Processing**: Live data visualization with external AI integration
+- **Advanced Data Visualization**: 19+ chart types including bar, line, scatter, pie, histogram, treemap, and more
+- **External AI Integration**: Direct integration with external AI visualization service via REST API
+- **Interactive Chart Generation**: Modal dialog for custom visualization requests with natural language
+- **Table-Embedded Charts**: Charts display directly under data tables, not in chat conversation
+- **Real-time Data Processing**: Live data visualization with custom message support
 - **Conversation Management**: Categorized conversations with persistent storage
 - **Excel Export**: Export work package data and reports to Excel format
 - **Dark/Light Theme**: Complete theme switching with system preference detection
@@ -46,10 +49,26 @@ The application uses in-memory storage (MemStorage) for fast, reliable data mana
 - **Messages**: Individual chat messages with support for different content types
 - **Work Packages**: Project work items with status tracking and progress monitoring
 
+## 🎯 Quick Start Guide
+
+### Using Chart Generation
+1. **Navigate to any data table** in the application
+2. **Click "Generate Charts"** button in the table header
+3. **Modal opens** - enter custom visualization request or leave blank
+4. **Charts appear** directly under the table within seconds
+5. **Interact with charts** - hover for tooltips, view legends
+
+### Example Visualization Requests
+- "Show progress trends by status over time"
+- "Create comparison charts for different work package types"
+- "Display completion rates and performance metrics"
+- "Analyze tag quantities by project phase"
+
 ## 🛠️ Installation & Setup
 
 ### Prerequisites
 - Node.js 20+ (automatically provided by Replit)
+- External AI visualization service running on `/api/datavis` endpoint
 
 ### Environment Configuration
 
@@ -71,6 +90,87 @@ MAX_FILE_SIZE=10485760
 UPLOAD_DIR=./uploads
 LOG_LEVEL=info
 ```
+
+## 📊 Chart Visualization System
+
+### External AI Integration
+The application integrates with an external AI visualization service for intelligent chart generation:
+
+- **Endpoint**: `/api/datavis` (running on same host as main application)
+- **Method**: POST with JSON payload
+- **Request Format**:
+```json
+{
+  "columns": [{"name": "column1"}, {"name": "column2"}],
+  "data_snippet": [...],
+  "total_rows": 150,
+  "message": "Optional custom visualization request"
+}
+```
+
+### Chart Generation Workflow
+1. **Click "Generate Charts"** on any data table
+2. **Modal dialog opens** with custom message input
+3. **Enter custom request** (optional) like "Show progress trends by status"
+4. **AI processes data** and returns chart configurations
+5. **Charts display immediately** under the table
+
+### Supported Chart Types
+The system supports 19+ visualization types:
+
+#### Core Charts
+- **Bar Chart**: Vertical bars for categorical data
+- **Horizontal Bar Chart**: Horizontal bars for long category names  
+- **Stacked Bar Chart**: Multi-series stacked data
+- **Grouped Bar Chart**: Side-by-side category comparison
+- **Line Chart**: Time series and trend analysis
+- **Area Chart**: Filled line charts for cumulative data
+- **Pie Chart**: Proportional data with percentages
+- **Donut Chart**: Pie chart with hollow center
+- **Scatter Plot**: Two-variable correlation analysis
+- **Bubble Chart**: Three-variable scatter with size dimension
+
+#### Advanced Charts
+- **Histogram**: Distribution analysis with connected bars
+- **Waterfall Chart**: Cumulative impact visualization
+- **Funnel Chart**: Process stage analysis
+- **Box Plot**: Statistical distribution summary
+- **Violin Plot**: Distribution shape visualization
+- **Heatmap**: Two-dimensional data density
+- **Treemap**: Hierarchical data with area-proportional rectangles
+- **Sunburst Chart**: Multi-level hierarchical data
+- **Radar Chart**: Multi-dimensional comparison
+
+#### Specialized Charts
+- **Gantt Chart**: Project timeline visualization using Visx
+- **Dumbbell Chart**: Before/after comparison with connected dots
+
+### Chart Features
+- **Interactive Tooltips**: Hover for detailed data points
+- **Responsive Design**: Automatic sizing for different screens
+- **Color Themes**: Consistent color palette across all charts
+- **Data Transformations**: Support for aggregations, grouping, and filtering
+- **Error Handling**: Graceful fallbacks for unsupported combinations
+
+## 🔄 Recent Updates (July 15, 2025)
+
+### Chart Display System Overhaul
+- **Removed chat integration** - Charts no longer save to conversation history
+- **Added table-embedded display** - Charts appear directly under data tables
+- **Implemented modal dialog** - Interactive chart generation with custom requests
+- **Enhanced user experience** - Immediate visualization without navigation
+
+### External AI Integration Complete
+- **API endpoint integration** - Direct connection to `/api/datavis` service
+- **Custom message support** - Natural language visualization requests
+- **Real-time processing** - Charts generated and displayed within seconds
+- **Professional UI/UX** - Clean modal interface with loading states
+
+### Technical Improvements
+- **State management** - React hooks for chart data and loading states
+- **Error handling** - Comprehensive API failure recovery
+- **Response parsing** - Multiple fallback strategies for different formats
+- **Debug capabilities** - Extensive console logging for troubleshooting
 
 ### Development Setup
 

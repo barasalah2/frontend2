@@ -579,6 +579,11 @@ const renderBarChart = (data: any[], config: ChartConfig) => {
   // Check if we have series data for multi-series charts
   const hasSeries = data.length > 0 && data[0].series !== null && data[0].series !== undefined;
   
+  // Calculate if we need to rotate labels based on number of categories
+  const uniqueCategories = [...new Set(data.map(item => item.x))].length;
+  const needsRotation = uniqueCategories > 6;
+  const bottomMargin = needsRotation ? 80 : 40;
+  
   if (hasSeries) {
     // Multi-series bar chart: group data by series
     const seriesNames = [...new Set(data.map(item => item.series).filter(Boolean))];
@@ -598,11 +603,15 @@ const renderBarChart = (data: any[], config: ChartConfig) => {
     
     return (
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={groupedData} margin={{ top: 20, right: 120, left: 20, bottom: 40 }}>
+        <BarChart data={groupedData} margin={{ top: 20, right: 120, left: 20, bottom: bottomMargin }}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis 
             dataKey="x" 
             label={{ value: config.x, position: 'insideBottom', offset: -10, style: { textAnchor: 'middle' } }}
+            tick={{ fontSize: 12, textAnchor: needsRotation ? 'end' : 'middle' }}
+            angle={needsRotation ? -45 : 0}
+            interval={0}
+            height={needsRotation ? 60 : 40}
           />
           <YAxis 
             label={{ value: config.y, angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' } }}
@@ -633,11 +642,15 @@ const renderBarChart = (data: any[], config: ChartConfig) => {
     // Single series bar chart
     return (
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 40 }}>
+        <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: bottomMargin }}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis 
             dataKey="x" 
             label={{ value: config.x, position: 'insideBottom', offset: -10, style: { textAnchor: 'middle' } }}
+            tick={{ fontSize: 12, textAnchor: needsRotation ? 'end' : 'middle' }}
+            angle={needsRotation ? -45 : 0}
+            interval={0}
+            height={needsRotation ? 60 : 40}
           />
           <YAxis 
             label={{ value: config.y, angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' } }}
@@ -962,18 +975,14 @@ const renderHistogram = (data: any[], config: ChartConfig) => {
     histogramData = processHistogramData(originalData, config.x);
   }
 
-  // Calculate bar width to fill the entire chart area
-  const containerWidth = 800; // Approximate chart width
-  const barWidth = Math.floor(containerWidth / histogramData.length);
-
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart 
         data={histogramData} 
         margin={{ top: 20, right: 30, left: 20, bottom: 40 }}
-        categoryGap={0}
+        categoryGap="0%"
         barGap={0}
-        barCategoryGap={0}
+        barCategoryGap="0%"
       >
         <CartesianGrid strokeDasharray="3 3" />
         <XAxis 
@@ -994,11 +1003,10 @@ const renderHistogram = (data: any[], config: ChartConfig) => {
         <Bar 
           dataKey="count" 
           fill={COLORS[0]} 
-          stroke="#333"
-          strokeWidth={1}
+          stroke="none"
+          strokeWidth={0}
           radius={0}
           minPointSize={0}
-          maxBarSize={barWidth}
         />
       </BarChart>
     </ResponsiveContainer>

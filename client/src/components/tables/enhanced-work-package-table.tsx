@@ -3,9 +3,12 @@ import { ChevronUp, ChevronDown, Search, Filter, X, BarChart3 } from "lucide-rea
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { MultiChartRenderer } from "@/components/charts/multi-chart-renderer";
 
 
 interface EnhancedWorkPackageTableProps {
@@ -24,6 +27,13 @@ export function EnhancedWorkPackageTable({ data, conversationId }: EnhancedWorkP
   const [showFilters, setShowFilters] = useState(false);
 
   const { toast } = useToast();
+  const [generatedCharts, setGeneratedCharts] = useState<any>(null);
+  const [isGeneratingCharts, setIsGeneratingCharts] = useState(false);
+  const [visualizationMessage, setVisualizationMessage] = useState("");
+  const [showVisualizationDialog, setShowVisualizationDialog] = useState(false);
+
+  // Debug logging for chart state
+  console.log("Table component render - generatedCharts:", generatedCharts);
 
   const columns = useMemo(() => {
     if (!data || data.length === 0) return [];
@@ -117,11 +127,14 @@ export function EnhancedWorkPackageTable({ data, conversationId }: EnhancedWorkP
       return;
     }
 
+    setShowVisualizationDialog(false);
+    setIsGeneratingCharts(true);
     try {
       const columns = Object.keys(data[0]);
       const dataSnippet = data.slice(0, 100); // Use first 100 rows for analysis
       
-      const response = await fetch('/api/datavis', {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const response = await fetch(`${apiUrl}/api/datavis`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -129,28 +142,85 @@ export function EnhancedWorkPackageTable({ data, conversationId }: EnhancedWorkP
         body: JSON.stringify({
           columns: columns.map(col => ({ name: col })),
           data_snippet: dataSnippet,
-          conversation_id: conversationId,
-          save_chart: true
+          total_rows: data.length,
+          message: visualizationMessage.trim() || undefined
         })
       });
       
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`HTTP error! status: ${response.status}, response: ${errorText}`);
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
       const result = await response.json();
+      console.log("API Response from external app:", result);
 
-      toast({
-        title: "Visualization Generated",
-        description: `Created ${result.visualizations.charts.length} charts from your data.`,
-      });
+      // Handle different response formats from external app
+      console.log("Raw result:", result);
+      console.log("Type of result:", typeof result);
+      console.log("Result keys:", Object.keys(result));
+      
+      let charts = [];
+      
+      // The response is a JSON string, we need to parse it first
+      let parsedResult = result;
+      if (typeof result === 'string') {
+        try {
+          parsedResult = JSON.parse(result);
+        } catch (e) {
+          console.error("Failed to parse result as JSON:", e);
+        }
+      }
+      
+      console.log("Parsed result:", parsedResult);
+      
+      if (Array.isArray(parsedResult.visualizations)) {
+        charts = parsedResult.visualizations;
+      } else if (parsedResult.visualizations?.charts && Array.isArray(parsedResult.visualizations.charts)) {
+        charts = parsedResult.visualizations.charts;
+      } else if (parsedResult.charts && Array.isArray(parsedResult.charts)) {
+        charts = parsedResult.charts;
+      }
+      
+      console.log("Final parsed charts:", charts);
+      
+      if (charts && charts.length > 0) {
+        // Display charts directly under the table
+        const chartConfig = {
+          title: "Data Analysis Dashboard",
+          description: `Generated ${charts.length} visualization${charts.length > 1 ? 's' : ''} from table data`,
+          charts: charts
+        };
+        
+        console.log("Setting generated charts:", chartConfig);
+        setGeneratedCharts(chartConfig);
+        
+        toast({
+          title: "Visualization Generated",
+          description: `Created ${charts.length} charts from your data.`,
+        });
+      } else {
+        toast({
+          title: "No charts generated",
+          description: "The AI couldn't generate charts from this data.",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       console.error("Error generating visualization:", error);
+      console.error("Error details:", {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
       toast({
         title: "Error",
-        description: "Failed to generate visualization. Please try again.",
+        description: `Failed to generate visualization: ${error.message || 'Unknown error'}`,
         variant: "destructive",
       });
+    } finally {
+      setIsGeneratingCharts(false);
     }
   };
 
@@ -199,14 +269,62 @@ export function EnhancedWorkPackageTable({ data, conversationId }: EnhancedWorkP
               Clear
             </Button>
           )}
-          <Button 
-            onClick={generateVisualization}
-            size="sm"
-            className="bg-workpack-blue hover:bg-blue-700 text-white"
-          >
-            <BarChart3 className="h-4 w-4 mr-2" />
-            Generate Charts
-          </Button>
+          <Dialog open={showVisualizationDialog} onOpenChange={setShowVisualizationDialog}>
+            <DialogTrigger asChild>
+              <Button 
+                size="sm"
+                className="bg-workpack-blue hover:bg-blue-700 text-white"
+                disabled={isGeneratingCharts}
+              >
+                <BarChart3 className="h-4 w-4 mr-2" />
+                {isGeneratingCharts ? "Generating..." : "Generate Charts"}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>Generate Data Visualizations</DialogTitle>
+                <DialogDescription>
+                  Describe what specific charts or insights you want to see from your data, or leave blank for automatic chart generation.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-1 gap-2">
+                  <label htmlFor="message" className="text-sm font-medium">
+                    Custom Message (Optional)
+                  </label>
+                  <Textarea
+                    id="message"
+                    placeholder="Example: 'Show progress trends by status', 'Create timeline charts for project phases', 'Compare performance metrics across teams'"
+                    value={visualizationMessage}
+                    onChange={(e) => setVisualizationMessage(e.target.value)}
+                    rows={4}
+                    className="resize-none"
+                  />
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  Total rows to analyze: {data?.length || 0}
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowVisualizationDialog(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="button"
+                  onClick={generateVisualization}
+                  className="bg-workpack-blue hover:bg-blue-700 text-white"
+                  disabled={isGeneratingCharts}
+                >
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  Generate Charts
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
@@ -306,12 +424,22 @@ export function EnhancedWorkPackageTable({ data, conversationId }: EnhancedWorkP
         </div>
       )}
 
-
-
-
-
-
-
+      {/* Generated Charts Display */}
+      {generatedCharts && (
+        <div className="mt-8">
+          <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-200">Generated Visualizations</h3>
+            <p className="text-sm text-blue-600 dark:text-blue-300">
+              {generatedCharts.charts?.length || 0} charts generated from your table data
+            </p>
+          </div>
+          <MultiChartRenderer
+            data={data}
+            config={generatedCharts}
+            height={400}
+          />
+        </div>
+      )}
     </div>
   );
 }
