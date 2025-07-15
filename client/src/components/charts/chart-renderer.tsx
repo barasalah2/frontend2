@@ -87,25 +87,36 @@ type DumbbellProps = {
 };
 
 const parseDate = timeParse("%Y-%m-%d");
-const formatDate = timeFormat("%b %d");
+const formatDate = timeFormat("%b %d, %Y");
 
 const ResponsiveGanttChart: React.FC<Omit<GanttProps, 'width' | 'height'>> = ({ data, config }) => {
-  const [dimensions, setDimensions] = React.useState({ width: 800, height: 500 });
+  // Dynamic sizing based on dataset size
+  const getItemHeight = (dataLength: number) => {
+    if (dataLength <= 20) return 30;
+    if (dataLength <= 50) return 25;
+    if (dataLength <= 100) return 20;
+    return 15; // Very large datasets
+  };
+  
+  const itemHeight = getItemHeight(data.length);
+  const [dimensions, setDimensions] = React.useState({ width: 800, height: Math.max(400, data.length * itemHeight + 200) });
 
   React.useEffect(() => {
     const updateDimensions = () => {
       const container = document.querySelector('.chart-container');
       if (container) {
         const rect = container.getBoundingClientRect();
+        const calculatedHeight = Math.max(400, data.length * itemHeight + 200); // Dynamic sizing based on dataset
         setDimensions({
-          width: Math.max(600, rect.width - 40), // Minimum 600px, subtract padding
-          height: 500
+          width: Math.max(800, rect.width - 40), // Minimum 800px to accommodate margins
+          height: calculatedHeight
         });
       } else {
-        // Fallback to window width
+        // Fallback to window width - calculate height based on data length
+        const calculatedHeight = Math.max(400, data.length * itemHeight + 200); // Dynamic sizing based on dataset
         setDimensions({
-          width: Math.max(600, window.innerWidth - 200), // Account for sidebar/margins
-          height: 500
+          width: Math.max(1000, window.innerWidth - 200), // Account for sidebar/margins - wider for better layout
+          height: calculatedHeight
         });
       }
     };
@@ -128,21 +139,60 @@ const GanttChart: React.FC<GanttProps> = ({ data, config, width = 800, height = 
     );
   }
 
-  // Parse dates with error handling
-  const parsedData = data.map(d => {
-    const startDate = parseDate(d.x);
-    const endDate = parseDate(d.x2);
+  // Parse dates with error handling and fallback for missing dates
+  let nullCount = 0;
+  let invalidDateCount = 0;
+  
+  const parsedData = data.map((d, index) => {
+    // Handle empty or invalid date strings
+    let startDate = null;
+    let endDate = null;
     
-    // If parsing fails, try direct Date parsing as fallback
-    const fallbackStart = startDate || new Date(d.x);
-    const fallbackEnd = endDate || new Date(d.x2);
+    if (d.x && d.x.trim() !== '') {
+      startDate = parseDate(d.x) || new Date(d.x);
+      if (isNaN(startDate.getTime())) startDate = null;
+    }
+    
+    if (d.x2 && d.x2.trim() !== '') {
+      endDate = parseDate(d.x2) || new Date(d.x2);
+      if (isNaN(endDate.getTime())) endDate = null;
+    }
+    
+    // If one date is missing, use the other as both start and end (show as point)
+    // If both are missing, skip this item
+    if (!startDate && !endDate) {
+      nullCount++;
+      return null;
+    }
+    
+    // Use available date for missing ones, or create a default duration
+    if (!startDate && endDate) {
+      // If no start date, use end date minus 30 days as start
+      startDate = new Date(endDate.getTime() - (30 * 24 * 60 * 60 * 1000));
+    }
+    
+    if (!endDate && startDate) {
+      // If no end date, use start date plus 30 days as end
+      endDate = new Date(startDate.getTime() + (30 * 24 * 60 * 60 * 1000));
+    }
     
     return {
       ...d,
-      x: fallbackStart,
-      x2: fallbackEnd,
+      startDate: startDate,
+      endDate: endDate,
     };
-  }).filter(d => d.x && d.x2 && !isNaN(d.x.getTime()) && !isNaN(d.x2.getTime()));
+  }).filter(d => {
+    const isValid = d !== null && d.startDate && d.endDate && !isNaN(d.startDate.getTime()) && !isNaN(d.endDate.getTime());
+    if (!isValid) {
+      invalidDateCount++;
+    }
+    return isValid;
+  });
+
+  // Debug info if needed
+  if (nullCount > 0 || invalidDateCount > 0) {
+    console.log('Gantt Chart - Items filtered out:', { nullCount, invalidDateCount });
+  }
 
   // Handle case where all dates failed to parse
   if (parsedData.length === 0) {
@@ -153,21 +203,48 @@ const GanttChart: React.FC<GanttProps> = ({ data, config, width = 800, height = 
     );
   }
 
-  const margin = { top: 40, left: 120, right: 150, bottom: 50 };
+  const margin = { top: 40, left: 300, right: 150, bottom: 60 };
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
 
-  // Unique Y values (tasks)
-  const tasks = [...new Set(parsedData.map(d => d.y))];
+  // Unique Y values (tasks) - sorted for better display
+  const tasks = [...new Set(parsedData.map(d => d.y))].sort();
+  
+  // Debug: log tasks to ensure all are included
+  console.log('Gantt Chart - Total tasks:', tasks.length, 'Sample tasks:', tasks.slice(0, 5));
+
+  // Dynamic padding based on dataset size
+  const getPadding = (dataLength: number) => {
+    if (dataLength <= 20) return 0.3;
+    if (dataLength <= 50) return 0.15;
+    if (dataLength <= 100) return 0.1;
+    return 0.05; // Very large datasets
+  };
+
   const yScale = scaleBand<string>({
     domain: tasks,
     range: [0, innerHeight],
-    padding: 0.3,
+    padding: getPadding(data.length),
   });
 
+  // Get valid dates for x-axis extent
+  const validStartDates = parsedData.filter(d => d.startDate).map(d => d.startDate.getTime());
+  const validEndDates = parsedData.filter(d => d.endDate).map(d => d.endDate.getTime());
+  const allValidDates = [...validStartDates, ...validEndDates];
+  
+  if (allValidDates.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <p className="text-gray-500">No valid dates found for Gantt chart</p>
+        </div>
+      </div>
+    );
+  }
+
   const xExtent: [Date, Date] = [
-    new Date(Math.min(...parsedData.map(d => d.x.getTime()))),
-    new Date(Math.max(...parsedData.map(d => d.x2.getTime()))),
+    new Date(Math.min(...allValidDates)),
+    new Date(Math.max(...allValidDates)),
   ];
   const xScale = scaleTime({
     domain: xExtent,
@@ -200,8 +277,8 @@ const GanttChart: React.FC<GanttProps> = ({ data, config, width = 800, height = 
   };
 
   return (
-    <div style={{ position: 'relative' }}>
-      <svg width={width} height={height}>
+    <div style={{ position: 'relative', width: '100%', overflow: 'visible' }}>
+      <svg width={width} height={height} style={{ display: 'block' }}>
         <Group top={margin.top} left={margin.left}>
           {/* Grid lines */}
           {xScale.ticks().map((tick, i) => (
@@ -221,14 +298,25 @@ const GanttChart: React.FC<GanttProps> = ({ data, config, width = 800, height = 
           {/* Bars */}
           {parsedData.map((d, i) => {
             const barY = yScale(d.y);
-            const barX = xScale(d.x);
-            const barWidth = xScale(d.x2) - xScale(d.x);
             const barHeight = yScale.bandwidth();
-
+            
+            if (barY === undefined || barHeight === undefined || !d.startDate || !d.endDate) {
+              return null;
+            }
+            
+            const startX = xScale(d.startDate);
+            const endX = xScale(d.endDate);
+            
+            if (startX === undefined || endX === undefined) {
+              return null;
+            }
+            
+            const barWidth = Math.max(2, endX - startX); // Minimum width of 2px
+            
             return (
               <VisxBar
-                key={i}
-                x={barX}
+                key={`gantt-bar-${i}`}
+                x={startX}
                 y={barY}
                 width={barWidth}
                 height={barHeight}
@@ -240,7 +328,7 @@ const GanttChart: React.FC<GanttProps> = ({ data, config, width = 800, height = 
                 onMouseEnter={(event) => {
                   showTooltip({
                     tooltipData: d,
-                    tooltipLeft: barX + barWidth / 2,
+                    tooltipLeft: startX + barWidth / 2,
                     tooltipTop: barY + barHeight / 2,
                   });
                 }}
@@ -266,12 +354,18 @@ const GanttChart: React.FC<GanttProps> = ({ data, config, width = 800, height = 
             scale={yScale} 
             stroke="#666"
             tickStroke="#666"
+            tickValues={tasks} // Explicitly set tick values to all tasks
             tickLabelProps={() => ({
               fill: '#666',
-              fontSize: 12,
+              fontSize: 8,
               textAnchor: 'end',
-              dx: -4,
+              dx: -12,
+              dy: '0.32em',
             })}
+            tickFormat={(value) => {
+              // Truncate long labels and add ellipsis
+              return value.length > 32 ? value.substring(0, 32) + '...' : value;
+            }}
           />
         </Group>
 
@@ -322,9 +416,9 @@ const GanttChart: React.FC<GanttProps> = ({ data, config, width = 800, height = 
           <div>
             <div><strong>{tooltipData.y}</strong></div>
             <div>Series: {tooltipData.series}</div>
-            <div>Start: {typeof tooltipData.x === 'string' ? tooltipData.x : tooltipData.x.toLocaleDateString()}</div>
-            <div>End: {typeof tooltipData.x2 === 'string' ? tooltipData.x2 : tooltipData.x2.toLocaleDateString()}</div>
-            <div>Duration: {Math.ceil((new Date(tooltipData.x2).getTime() - new Date(tooltipData.x).getTime()) / (1000 * 60 * 60 * 24))} days</div>
+            <div>Start: {tooltipData.startDate ? tooltipData.startDate.toLocaleDateString() : 'N/A'}</div>
+            <div>End: {tooltipData.endDate ? tooltipData.endDate.toLocaleDateString() : 'N/A'}</div>
+            <div>Duration: {tooltipData.startDate && tooltipData.endDate ? Math.ceil((tooltipData.endDate.getTime() - tooltipData.startDate.getTime()) / (1000 * 60 * 60 * 24)) : 0} days</div>
           </div>
         </TooltipWithBounds>
       )}
@@ -372,7 +466,7 @@ const DumbbellChart: React.FC<DumbbellProps> = ({ data, config, width = 900, hei
 
   // Parse dates - try different formats
   const parseDate = timeParse("%Y-%m-%d");
-  const formatDate = timeFormat("%b %d");
+  const formatDate = timeFormat("%b %d, %Y");
   
   const rows = data.map(d => {
     let parsedX = parseDate(d.x);
