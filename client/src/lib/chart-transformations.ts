@@ -250,12 +250,6 @@ const applySimultaneousGrouping = (
 
   // Step 6: Apply group limiting if combinations exceed 30
   let finalCombinations = filteredCombinations;
-  if (filteredCombinations.length > 30) {
-    console.log(`Simultaneous grouping combinations exceed 30 (${filteredCombinations.length}), limiting to top 30 by count`);
-    finalCombinations = filteredCombinations
-      .sort((a, b) => b.count - a.count)  // Sort by count descending
-      .slice(0, 30);  // Take top 30
-  }
 
   // Step 7: Sort alphabetically by x field, then y field, then series field (for grouping columns only)
   return finalCombinations.sort((a, b) => {
@@ -327,29 +321,15 @@ const isGroupingTransform = (transform: string): boolean => {
   );
 };
 
-// Helper function to limit groups to 30 using topk:30 if needed
-const limitGroupsToThirty = (
+// Helper function to apply normal aggregation without group limiting
+const applyGroupingAggregation = (
   data: any[],
   groupField: string,
   aggField: string,
   seriesField: string | null,
   aggTransform: string,
 ): any[] => {
-  // Count unique groups
-  const uniqueGroups = new Set();
-  data.forEach(item => {
-    const groupKey = item[groupField];
-    const seriesKey = seriesField ? item[seriesField] : '';
-    uniqueGroups.add(`${groupKey}|||${seriesKey}`);
-  });
-
-  // If groups exceed 30, apply topk:30
-  if (uniqueGroups.size > 30) {
-    console.log(`Groups exceed 30 (${uniqueGroups.size}), applying topk:30 automatically`);
-    return applyTopKWithAggregation(data, groupField, aggField, seriesField, 30, aggTransform);
-  }
-
-  // Otherwise, apply normal aggregation
+  // Apply normal aggregation without any group limiting
   return applyUnifiedAggregation(data, groupField, aggField, seriesField, aggTransform);
 };
 
@@ -375,10 +355,8 @@ const applyGroupingWithAggregation = (
       dateType,
       aggTransform,
     );
-    // Apply group limiting if needed
-    groupedData = dateData.length > 30 ? 
-      applyTopKWithAggregation(data, groupField, aggField, seriesField, 30, aggTransform) :
-      dateData;
+    // Apply date grouping data without limiting
+    groupedData = dateData;
   } else if (groupTransform.startsWith("bin:")) {
     const binType = groupTransform.split(":")[1];
     const binData = applyBinningWithAggregation(
@@ -389,10 +367,7 @@ const applyGroupingWithAggregation = (
       binType,
       aggTransform,
     );
-    // Apply group limiting if needed
-    groupedData = binData.length > 30 ? 
-      applyTopKWithAggregation(data, groupField, aggField, seriesField, 30, aggTransform) :
-      binData;
+    groupedData = binData;
   } else if (groupTransform.startsWith("topk:")) {
     const k = parseInt(groupTransform.split(":")[1]);
     groupedData = applyTopKWithAggregation(
@@ -432,9 +407,7 @@ const applyGroupingWithAggregation = (
       seriesField,
       aggTransform,
     );
-    groupedData = alphabeticalData.length > 30 ? 
-      applyTopKWithAggregation(data, groupField, aggField, seriesField, 30, aggTransform) :
-      alphabeticalData;
+    groupedData = alphabeticalData;
   } else if (groupTransform === "frequency") {
     // Apply frequency grouping with automatic group limiting
     const frequencyData = applyFrequencyWithAggregation(
@@ -444,12 +417,10 @@ const applyGroupingWithAggregation = (
       seriesField,
       aggTransform,
     );
-    groupedData = frequencyData.length > 30 ? 
-      applyTopKWithAggregation(data, groupField, aggField, seriesField, 30, aggTransform) :
-      frequencyData;
+    groupedData = frequencyData;
   } else {
-    // For basic aggregation without grouping transform, apply group limiting
-    groupedData = limitGroupsToThirty(data, groupField, aggField, seriesField, aggTransform);
+    // For basic aggregation without grouping transform, apply normal aggregation
+    groupedData = applyGroupingAggregation(data, groupField, aggField, seriesField, aggTransform);
   }
 
   return groupedData;

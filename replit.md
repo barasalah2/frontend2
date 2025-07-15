@@ -119,6 +119,22 @@ The application is designed to be deployment-ready for platforms like Replit, wi
 
 ## Recent Changes (July 15, 2025)
 
+### Group Limiting Removed for Large Datasets (July 15, 2025)
+- **Removed Top 30 Limitations**: Eliminated all artificial group limiting from chart transformations
+  - Removed "Simultaneous grouping combinations exceed 30" automatic limiting
+  - Removed group limiting from date_group, bin, alphabetical, frequency, and basic aggregations
+  - Replaced `limitGroupsToThirty()` function with `applyGroupingAggregation()` for unlimited processing
+  - Charts now display all available data without artificial constraints
+- **Enhanced Large Dataset Support**: Improved handling of large datasets in Gantt charts
+  - Fixed date parsing and timezone issues that affected large datasets
+  - Gantt charts now process all tasks (89 tasks vs previously limited 30)
+  - Maintained date accuracy while removing performance limitations
+  - Added date order validation to handle edge cases in large datasets
+- **Performance Optimization**: Charts now handle unlimited data while maintaining performance
+  - Removed unnecessary filtering and sorting operations
+  - Streamlined data processing pipeline for better performance
+  - Maintained all existing functionality while removing artificial constraints
+
 ### Series Legend Overflow Fix Complete (July 15, 2025)
 - **Scrollable Legend Implementation**: Fixed series legend overflow issue with proper positioning and scroll functionality
   - Replaced problematic right-aligned Recharts legends with custom scrollable legend containers

@@ -87,7 +87,7 @@ type DumbbellProps = {
 };
 
 const parseDate = timeParse("%Y-%m-%d");
-const formatDate = timeFormat("%b %d, %Y");
+const formatDate = timeFormat("%Y-%m-%d");
 
 const ResponsiveGanttChart: React.FC<Omit<GanttProps, 'width' | 'height'>> = ({ data, config }) => {
   // Dynamic sizing based on dataset size
@@ -144,37 +144,76 @@ const GanttChart: React.FC<GanttProps> = ({ data, config, width = 800, height = 
   let invalidDateCount = 0;
   
   const parsedData = data.map((d, index) => {
+
+    
     // Handle empty or invalid date strings
     let startDate = null;
     let endDate = null;
     
     if (d.x && d.x.trim() !== '') {
-      startDate = parseDate(d.x) || new Date(d.x);
-      if (isNaN(startDate.getTime())) startDate = null;
+      // Parse the date ensuring we use the exact date provided
+      const parts = d.x.split('-');
+      if (parts.length === 3) {
+        // Create date using local time (not UTC) to preserve exact date
+        startDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        if (isNaN(startDate.getTime())) startDate = null;
+      } else {
+        // Fallback to d3 parsing
+        startDate = parseDate(d.x);
+        if (!startDate) {
+          startDate = new Date(d.x);
+          if (isNaN(startDate.getTime())) startDate = null;
+        }
+      }
     }
     
     if (d.x2 && d.x2.trim() !== '') {
-      endDate = parseDate(d.x2) || new Date(d.x2);
-      if (isNaN(endDate.getTime())) endDate = null;
+      // Parse the date ensuring we use the exact date provided
+      const parts = d.x2.split('-');
+      if (parts.length === 3) {
+        // Create date using local time (not UTC) to preserve exact date
+        endDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        if (isNaN(endDate.getTime())) endDate = null;
+      } else {
+        // Fallback to d3 parsing
+        endDate = parseDate(d.x2);
+        if (!endDate) {
+          endDate = new Date(d.x2 + 'T00:00:00');
+          if (isNaN(endDate.getTime())) endDate = null;
+        }
+      }
+      
+
     }
     
-    // If one date is missing, use the other as both start and end (show as point)
-    // If both are missing, skip this item
+
+    
+    // If both dates are missing, skip this item
     if (!startDate && !endDate) {
       nullCount++;
       return null;
     }
     
-    // Use available date for missing ones, or create a default duration
+    // Handle missing dates - use the actual date provided, don't create synthetic dates
     if (!startDate && endDate) {
-      // If no start date, use end date minus 30 days as start
-      startDate = new Date(endDate.getTime() - (30 * 24 * 60 * 60 * 1000));
+      // If no start date, use the same date as end date to show as a milestone/point
+      startDate = new Date(endDate.getTime());
     }
     
     if (!endDate && startDate) {
-      // If no end date, use start date plus 30 days as end
-      endDate = new Date(startDate.getTime() + (30 * 24 * 60 * 60 * 1000));
+      // If no end date, use the same date as start date to show as a milestone/point
+      endDate = new Date(startDate.getTime());
     }
+    
+    // Handle cases where start date is after end date (data error)
+    if (startDate && endDate && startDate > endDate) {
+      // Swap the dates to make logical sense
+      const temp = startDate;
+      startDate = endDate;
+      endDate = temp;
+    }
+    
+
     
     return {
       ...d,
@@ -276,10 +315,175 @@ const GanttChart: React.FC<GanttProps> = ({ data, config, width = 800, height = 
     fontSize: '12px',
   };
 
+  // Check if scrolling is needed
+  const needsScroll = height > 600; // If chart height exceeds 600px, we need scroll
+  
   return (
-    <div style={{ position: 'relative', width: '100%', overflow: 'visible' }}>
-      <svg width={width} height={height} style={{ display: 'block' }}>
-        <Group top={margin.top} left={margin.left}>
+    <div style={{ position: 'relative', width: '100%' }}>
+      {needsScroll ? (
+        // Scrollable layout with sticky x-axis
+        <div style={{ position: 'relative', width: '100%', height: '600px' }}>
+          {/* Sticky X-axis container */}
+          <div style={{ 
+            position: 'sticky', 
+            top: 0, 
+            zIndex: 10, 
+            backgroundColor: 'var(--background)',
+            borderBottom: '1px solid var(--border)',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+          }}>
+            <svg width={width} height={margin.top + 40} style={{ display: 'block' }}>
+              <Group top={margin.top} left={margin.left}>
+                {/* X-axis grid lines */}
+                {xScale.ticks().map((tick, i) => (
+                  <line
+                    key={`sticky-grid-x-${i}`}
+                    x1={xScale(tick)}
+                    x2={xScale(tick)}
+                    y1={0}
+                    y2={30}
+                    stroke="var(--border)"
+                    strokeDasharray="3,3"
+                    strokeWidth={1}
+                    opacity={0.6}
+                  />
+                ))}
+                {/* X-axis */}
+                <AxisBottom
+                  top={20}
+                  scale={xScale}
+                  numTicks={8}
+                  tickFormat={timeFormat("%b %d")}
+                  stroke="var(--border)"
+                  strokeWidth={1}
+                  tickStroke="var(--border)"
+                  tickLength={6}
+                  tickLabelProps={() => ({ 
+                    fontSize: 11, 
+                    dy: "0.33em",
+                    fill: "var(--foreground)",
+                    textAnchor: "middle",
+                    fontWeight: 500
+                  })}
+                />
+                {/* X-axis Label */}
+                <text
+                  x={innerWidth / 2}
+                  y={55}
+                  fill="var(--muted-foreground)"
+                  fontSize={12}
+                  fontWeight={600}
+                  textAnchor="middle"
+                >
+                  Timeline
+                </text>
+              </Group>
+            </svg>
+          </div>
+          
+          {/* Scrollable content area */}
+          <div style={{ 
+            height: '540px', 
+            overflowY: 'auto',
+            overflowX: 'hidden'
+          }}>
+            <svg width={width} height={height - margin.top - 40} style={{ display: 'block' }}>
+              <Group top={0} left={margin.left}>
+                {/* Grid lines */}
+                {xScale.ticks().map((tick, i) => (
+                  <line
+                    key={`grid-x-${i}`}
+                    x1={xScale(tick)}
+                    x2={xScale(tick)}
+                    y1={0}
+                    y2={innerHeight}
+                    stroke="#e0e0e0"
+                    strokeDasharray="3,3"
+                    strokeWidth={1}
+                    opacity={0.6}
+                  />
+                ))}
+                
+                {/* Bars */}
+                {parsedData.map((d, i) => {
+                  const barY = yScale(d.y);
+                  const barHeight = yScale.bandwidth();
+                  
+                  if (barY === undefined || barHeight === undefined || !d.startDate || !d.endDate) {
+                    return null;
+                  }
+                  
+                  const startX = xScale(d.startDate);
+                  const endX = xScale(d.endDate);
+                  
+                  if (startX === undefined || endX === undefined) {
+                    return null;
+                  }
+                  
+                  const barWidth = Math.max(2, endX - startX);
+                  
+                  return (
+                    <VisxBar
+                      key={`gantt-bar-${i}`}
+                      x={startX}
+                      y={barY}
+                      width={barWidth}
+                      height={barHeight}
+                      fill={colorScale(d.series)}
+                      rx={3}
+                      stroke="#fff"
+                      strokeWidth={1}
+                      style={{ cursor: 'pointer' }}
+                      onMouseEnter={(event) => {
+                        showTooltip({
+                          tooltipData: d,
+                          tooltipLeft: startX + barWidth / 2,
+                          tooltipTop: barY + barHeight / 2,
+                        });
+                      }}
+                      onMouseLeave={() => hideTooltip()}
+                    />
+                  );
+                })}
+
+                {/* Y-axis */}
+                <AxisLeft
+                  scale={yScale}
+                  stroke="var(--border)"
+                  strokeWidth={1}
+                  tickStroke="var(--border)"
+                  tickLength={6}
+                  tickLabelProps={() => ({ 
+                    fontSize: 11, 
+                    dx: "-0.5em",
+                    dy: "0.25em",
+                    fill: "var(--foreground)",
+                    textAnchor: "end",
+                    dominantBaseline: "middle",
+                    fontWeight: 500
+                  })}
+                />
+                
+                {/* Y-axis Label */}
+                <text
+                  x={-margin.left + 20}
+                  y={innerHeight / 2}
+                  fill="var(--muted-foreground)"
+                  fontSize={12}
+                  fontWeight={600}
+                  textAnchor="middle"
+                  transform={`rotate(-90, ${-margin.left + 20}, ${innerHeight / 2})`}
+                >
+                  {config.y || 'Tasks'}
+                </text>
+              </Group>
+            </svg>
+          </div>
+        </div>
+      ) : (
+        // Normal layout for smaller charts
+        <svg width={width} height={height} style={{ display: 'block' }}>
+          <Group top={margin.top} left={margin.left}>
           {/* Grid lines */}
           {xScale.ticks().map((tick, i) => (
             <line
@@ -288,7 +492,7 @@ const GanttChart: React.FC<GanttProps> = ({ data, config, width = 800, height = 
               x2={xScale(tick)}
               y1={0}
               y2={innerHeight}
-              stroke="#e0e0e0"
+              stroke="var(--border)"
               strokeDasharray="3,3"
               strokeWidth={1}
               opacity={0.6}
@@ -341,26 +545,34 @@ const GanttChart: React.FC<GanttProps> = ({ data, config, width = 800, height = 
           <AxisBottom
             top={innerHeight}
             scale={xScale}
-            tickFormat={formatDate}
-            stroke="#666"
-            tickStroke="#666"
+            numTicks={8}
+            tickFormat={timeFormat("%b %d")}
+            stroke="var(--border)"
+            strokeWidth={1}
+            tickStroke="var(--border)"
+            tickLength={6}
             tickLabelProps={() => ({
-              fill: '#666',
-              fontSize: 12,
+              fill: 'var(--foreground)',
+              fontSize: 11,
               textAnchor: 'middle',
+              dy: '0.33em',
+              fontWeight: 500
             })}
           />
           <AxisLeft 
             scale={yScale} 
-            stroke="#666"
-            tickStroke="#666"
+            stroke="var(--border)"
+            strokeWidth={1}
+            tickStroke="var(--border)"
+            tickLength={6}
             tickValues={tasks} // Explicitly set tick values to all tasks
             tickLabelProps={() => ({
-              fill: '#666',
+              fill: 'var(--foreground)',
               fontSize: 8,
               textAnchor: 'end',
               dx: -12,
               dy: '0.32em',
+              fontWeight: 500
             })}
             tickFormat={(value) => {
               // Truncate long labels and add ellipsis
@@ -369,14 +581,37 @@ const GanttChart: React.FC<GanttProps> = ({ data, config, width = 800, height = 
           />
         </Group>
 
+        {/* Axis Labels */}
+        <text
+          x={width / 2}
+          y={height - 10}
+          textAnchor="middle"
+          fill="var(--muted-foreground)"
+          fontSize={12}
+          fontWeight={600}
+        >
+          Timeline
+        </text>
+        <text
+          x={15}
+          y={height / 2}
+          textAnchor="middle"
+          fill="var(--muted-foreground)"
+          fontSize={12}
+          fontWeight={600}
+          transform={`rotate(-90, 15, ${height / 2})`}
+        >
+          {config.y || 'Tasks'}
+        </text>
+
         {/* Legend */}
         <Group top={margin.top} left={width - margin.right + 20}>
           <text
             x={0}
             y={0}
-            fill="#666"
-            fontSize={14}
-            fontWeight="bold"
+            fill="var(--muted-foreground)"
+            fontSize={12}
+            fontWeight={600}
             textAnchor="start"
           >
             {config.series || 'Series'}
@@ -394,10 +629,11 @@ const GanttChart: React.FC<GanttProps> = ({ data, config, width = 800, height = 
               <text
                 x={18}
                 y={0}
-                fill="#666"
-                fontSize={12}
+                fill="var(--foreground)"
+                fontSize={11}
                 textAnchor="start"
                 dominantBaseline="middle"
+                fontWeight={500}
               >
                 {seriesName}
               </text>
@@ -405,19 +641,21 @@ const GanttChart: React.FC<GanttProps> = ({ data, config, width = 800, height = 
           ))}
         </Group>
       </svg>
-
+      )}
+      
       {/* Tooltip */}
       {tooltipOpen && tooltipData && (
         <TooltipWithBounds
-          top={tooltipTop + margin.top}
-          left={tooltipLeft + margin.left}
+          key={Math.random()}
+          top={tooltipTop}
+          left={tooltipLeft}
           style={tooltipStyles}
         >
           <div>
             <div><strong>{tooltipData.y}</strong></div>
             <div>Series: {tooltipData.series}</div>
-            <div>Start: {tooltipData.startDate ? tooltipData.startDate.toLocaleDateString() : 'N/A'}</div>
-            <div>End: {tooltipData.endDate ? tooltipData.endDate.toLocaleDateString() : 'N/A'}</div>
+            <div>Start: {tooltipData.startDate ? formatDate(tooltipData.startDate) : 'N/A'}</div>
+            <div>End: {tooltipData.endDate ? formatDate(tooltipData.endDate) : 'N/A'}</div>
             <div>Duration: {tooltipData.startDate && tooltipData.endDate ? Math.ceil((tooltipData.endDate.getTime() - tooltipData.startDate.getTime()) / (1000 * 60 * 60 * 24)) : 0} days</div>
           </div>
         </TooltipWithBounds>
@@ -466,7 +704,7 @@ const DumbbellChart: React.FC<DumbbellProps> = ({ data, config, width = 900, hei
 
   // Parse dates - try different formats
   const parseDate = timeParse("%Y-%m-%d");
-  const formatDate = timeFormat("%b %d, %Y");
+  const formatDate = timeFormat("%Y-%m-%d");
   
   const rows = data.map(d => {
     let parsedX = parseDate(d.x);
@@ -1640,7 +1878,7 @@ export function ChartRenderer({ data, config, height = 400, width = "100%" }: Ch
         </div>
       </CardHeader>
       <CardContent>
-        <div className="chart-container" style={{ width, height: `${height}px` }}>
+        <div className="chart-container" style={{ width, height: `${height}px`, minHeight: '400px', overflow: 'auto' }}>
           {renderChart()}
         </div>
       </CardContent>
