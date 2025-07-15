@@ -444,9 +444,10 @@ const DumbbellChart: React.FC<DumbbellProps> = ({ data, config, width = 900, hei
   };
 
   return (
-    <div style={{ position: 'relative' }}>
-      <svg width={width} height={height}>
-        <Group left={margin.left} top={margin.top}>
+    <div style={{ display: 'flex', width: '100%', height: '100%' }}>
+      <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
+        <svg width={width} height={height}>
+          <Group left={margin.left} top={margin.top}>
           {/* Dumbbells */}
           {rows.map((d, i) => {
             const y = yScale(d.y)! + yScale.bandwidth() / 2;
@@ -528,48 +529,61 @@ const DumbbellChart: React.FC<DumbbellProps> = ({ data, config, width = 900, hei
             })}
           />
 
-          {/* Legend */}
-          <Group top={-35} left={0}>
-            {seriesSet.map((seriesName, i) => (
-              <Group key={seriesName} left={i * 120}>
-                <Circle
-                  cx={8}
-                  cy={8}
-                  r={6}
-                  fill={color(seriesName)}
-                />
-                <text
-                  x={20}
-                  y={8}
-                  fill="#666"
-                  fontSize={12}
-                  textAnchor="start"
-                  dominantBaseline="middle"
-                >
-                  {seriesName}
-                </text>
-              </Group>
-            ))}
-          </Group>
+          {/* Legend - moved to external scrollable div */}
         </Group>
       </svg>
 
-      {/* Tooltip */}
-      {tooltipOpen && tooltipData && (
-        <TooltipWithBounds
-          top={tooltipTop + margin.top}
-          left={tooltipLeft + margin.left}
-          style={tooltipStyles}
-        >
-          <div>
-            <div><strong>{tooltipData.y}</strong></div>
-            <div>Series: {tooltipData.series}</div>
-            <div>Planned: {typeof tooltipData.x === 'string' ? tooltipData.x : tooltipData.x.toLocaleDateString()}</div>
-            <div>Actual: {typeof tooltipData.x2 === 'string' ? tooltipData.x2 : tooltipData.x2.toLocaleDateString()}</div>
-            <div>Deviation: {Math.ceil((new Date(tooltipData.x2).getTime() - new Date(tooltipData.x).getTime()) / (1000 * 60 * 60 * 24))} days</div>
-          </div>
-        </TooltipWithBounds>
-      )}
+        {/* Tooltip */}
+        {tooltipOpen && tooltipData && (
+          <TooltipWithBounds
+            top={tooltipTop + margin.top}
+            left={tooltipLeft + margin.left}
+            style={tooltipStyles}
+          >
+            <div>
+              <div><strong>{tooltipData.y}</strong></div>
+              <div>Series: {tooltipData.series}</div>
+              <div>Planned: {typeof tooltipData.x === 'string' ? tooltipData.x : tooltipData.x.toLocaleDateString()}</div>
+              <div>Actual: {typeof tooltipData.x2 === 'string' ? tooltipData.x2 : tooltipData.x2.toLocaleDateString()}</div>
+              <div>Deviation: {Math.ceil((new Date(tooltipData.x2).getTime() - new Date(tooltipData.x).getTime()) / (1000 * 60 * 60 * 24))} days</div>
+            </div>
+          </TooltipWithBounds>
+        )}
+      </div>
+      
+      {/* Scrollable Legend */}
+      <div style={{ 
+        width: '140px', 
+        maxHeight: '100%', 
+        overflowY: 'auto', 
+        paddingLeft: '10px',
+        borderLeft: '1px solid #e5e7eb'
+      }}>
+        <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#666', marginBottom: '10px' }}>
+          Series
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {seriesSet.map((seriesName, index) => (
+            <div key={seriesName} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{
+                width: '12px',
+                height: '12px',
+                backgroundColor: color(seriesName),
+                borderRadius: '50%',
+                flexShrink: 0
+              }} />
+              <span style={{ 
+                fontSize: '12px', 
+                color: '#666',
+                lineHeight: 1.2,
+                wordBreak: 'break-word'
+              }}>
+                {seriesName}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 };
@@ -602,41 +616,72 @@ const renderBarChart = (data: any[], config: ChartConfig) => {
     }, []);
     
     return (
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={groupedData} margin={{ top: 20, right: 120, left: 20, bottom: bottomMargin }}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis 
-            dataKey="x" 
-            label={{ value: config.x, position: 'insideBottom', offset: -10, style: { textAnchor: 'middle' } }}
-            tick={{ fontSize: 12, textAnchor: needsRotation ? 'end' : 'middle' }}
-            angle={needsRotation ? -45 : 0}
-            interval={0}
-            height={needsRotation ? 60 : 40}
-          />
-          <YAxis 
-            label={{ value: config.y, angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' } }}
-          />
-          <Tooltip 
-            labelFormatter={(label) => `${config.x}: ${label}`}
-            formatter={(value, name) => [value, name === 'y' ? config.y || 'Value' : name]}
-          />
-          <Legend 
-            verticalAlign="top" 
-            align="right" 
-            layout="vertical"
-            iconType="line"
-            wrapperStyle={{ paddingBottom: '20px' }}
-          />
-          {seriesNames.map((seriesName, index) => (
-            <Bar 
-              key={seriesName} 
-              dataKey={seriesName} 
-              fill={COLORS[index % COLORS.length]}
-              name={seriesName}
-            />
-          ))}
-        </BarChart>
-      </ResponsiveContainer>
+      <div style={{ display: 'flex', width: '100%', height: '100%' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={groupedData} margin={{ top: 20, right: 20, left: 20, bottom: bottomMargin }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis 
+                dataKey="x" 
+                label={{ value: config.x, position: 'insideBottom', offset: -10, style: { textAnchor: 'middle' } }}
+                tick={{ fontSize: 12, textAnchor: needsRotation ? 'end' : 'middle' }}
+                angle={needsRotation ? -45 : 0}
+                interval={0}
+                height={needsRotation ? 60 : 40}
+              />
+              <YAxis 
+                label={{ value: config.y, angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' } }}
+              />
+              <Tooltip 
+                labelFormatter={(label) => `${config.x}: ${label}`}
+                formatter={(value, name) => [value, name === 'y' ? config.y || 'Value' : name]}
+              />
+              {seriesNames.map((seriesName, index) => (
+                <Bar 
+                  key={seriesName} 
+                  dataKey={seriesName} 
+                  fill={COLORS[index % COLORS.length]}
+                  name={seriesName}
+                />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        
+        {/* Scrollable Legend */}
+        <div style={{ 
+          width: '140px', 
+          maxHeight: '100%', 
+          overflowY: 'auto', 
+          paddingLeft: '10px',
+          borderLeft: '1px solid #e5e7eb'
+        }}>
+          <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#666', marginBottom: '10px' }}>
+            {config.series || 'Series'}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {seriesNames.map((seriesName, index) => (
+              <div key={seriesName} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{
+                  width: '12px',
+                  height: '12px',
+                  backgroundColor: COLORS[index % COLORS.length],
+                  borderRadius: '2px',
+                  flexShrink: 0
+                }} />
+                <span style={{ 
+                  fontSize: '12px', 
+                  color: '#666',
+                  lineHeight: 1.2,
+                  wordBreak: 'break-word'
+                }}>
+                  {seriesName}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     );
   } else {
     // Single series bar chart
@@ -688,39 +733,70 @@ const renderLineChart = (data: any[], config: ChartConfig) => {
     }, []);
     
     return (
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={groupedData} margin={{ top: 20, right: 120, left: 20, bottom: 40 }}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis 
-            dataKey="x" 
-            label={{ value: config.x, position: 'insideBottom', offset: -10, style: { textAnchor: 'middle' } }}
-          />
-          <YAxis 
-            label={{ value: config.y, angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' } }}
-          />
-          <Tooltip 
-            labelFormatter={(label) => `${config.x}: ${label}`}
-            formatter={(value, name) => [value, name === 'y' ? config.y || 'Value' : name]}
-          />
-          <Legend 
-            verticalAlign="top" 
-            align="right" 
-            layout="vertical"
-            iconType="line"
-            wrapperStyle={{ paddingBottom: '20px' }}
-          />
-          {seriesNames.map((seriesName, index) => (
-            <Line 
-              key={seriesName} 
-              type="monotone" 
-              dataKey={seriesName} 
-              stroke={COLORS[index % COLORS.length]}
-              strokeWidth={2}
-              name={seriesName}
-            />
-          ))}
-        </LineChart>
-      </ResponsiveContainer>
+      <div style={{ display: 'flex', width: '100%', height: '100%' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={groupedData} margin={{ top: 20, right: 20, left: 20, bottom: 40 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis 
+                dataKey="x" 
+                label={{ value: config.x, position: 'insideBottom', offset: -10, style: { textAnchor: 'middle' } }}
+              />
+              <YAxis 
+                label={{ value: config.y, angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' } }}
+              />
+              <Tooltip 
+                labelFormatter={(label) => `${config.x}: ${label}`}
+                formatter={(value, name) => [value, name === 'y' ? config.y || 'Value' : name]}
+              />
+              {seriesNames.map((seriesName, index) => (
+                <Line 
+                  key={seriesName} 
+                  type="monotone" 
+                  dataKey={seriesName} 
+                  stroke={COLORS[index % COLORS.length]}
+                  strokeWidth={2}
+                  name={seriesName}
+                />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+        
+        {/* Scrollable Legend */}
+        <div style={{ 
+          width: '140px', 
+          maxHeight: '100%', 
+          overflowY: 'auto', 
+          paddingLeft: '10px',
+          borderLeft: '1px solid #e5e7eb'
+        }}>
+          <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#666', marginBottom: '10px' }}>
+            {config.series || 'Series'}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {seriesNames.map((seriesName, index) => (
+              <div key={seriesName} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{
+                  width: '12px',
+                  height: '12px',
+                  backgroundColor: COLORS[index % COLORS.length],
+                  borderRadius: '2px',
+                  flexShrink: 0
+                }} />
+                <span style={{ 
+                  fontSize: '12px', 
+                  color: '#666',
+                  lineHeight: 1.2,
+                  wordBreak: 'break-word'
+                }}>
+                  {seriesName}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     );
   } else {
     // Single series line chart
@@ -773,40 +849,71 @@ const renderAreaChart = (data: any[], config: ChartConfig) => {
     }, []);
     
     return (
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={groupedData} margin={{ top: 20, right: 120, left: 20, bottom: 40 }}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis 
-            dataKey="x" 
-            label={{ value: config.x, position: 'insideBottom', offset: -10, style: { textAnchor: 'middle' } }}
-          />
-          <YAxis 
-            label={{ value: config.y, angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' } }}
-          />
-          <Tooltip 
-            labelFormatter={(label) => `${config.x}: ${label}`}
-            formatter={(value, name) => [value, name === 'y' ? config.y || 'Value' : name]}
-          />
-          <Legend 
-            verticalAlign="top" 
-            align="right" 
-            layout="vertical"
-            iconType="line"
-            wrapperStyle={{ paddingBottom: '20px' }}
-          />
-          {seriesNames.map((seriesName, index) => (
-            <Area 
-              key={seriesName} 
-              type="monotone" 
-              dataKey={seriesName} 
-              stackId="1"
-              stroke={COLORS[index % COLORS.length]}
-              fill={COLORS[index % COLORS.length]}
-              name={seriesName}
-            />
-          ))}
-        </AreaChart>
-      </ResponsiveContainer>
+      <div style={{ display: 'flex', width: '100%', height: '100%' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={groupedData} margin={{ top: 20, right: 20, left: 20, bottom: 40 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis 
+                dataKey="x" 
+                label={{ value: config.x, position: 'insideBottom', offset: -10, style: { textAnchor: 'middle' } }}
+              />
+              <YAxis 
+                label={{ value: config.y, angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' } }}
+              />
+              <Tooltip 
+                labelFormatter={(label) => `${config.x}: ${label}`}
+                formatter={(value, name) => [value, name === 'y' ? config.y || 'Value' : name]}
+              />
+              {seriesNames.map((seriesName, index) => (
+                <Area 
+                  key={seriesName} 
+                  type="monotone" 
+                  dataKey={seriesName} 
+                  stackId="1"
+                  stroke={COLORS[index % COLORS.length]}
+                  fill={COLORS[index % COLORS.length]}
+                  name={seriesName}
+                />
+              ))}
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+        
+        {/* Scrollable Legend */}
+        <div style={{ 
+          width: '140px', 
+          maxHeight: '100%', 
+          overflowY: 'auto', 
+          paddingLeft: '10px',
+          borderLeft: '1px solid #e5e7eb'
+        }}>
+          <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#666', marginBottom: '10px' }}>
+            {config.series || 'Series'}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {seriesNames.map((seriesName, index) => (
+              <div key={seriesName} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{
+                  width: '12px',
+                  height: '12px',
+                  backgroundColor: COLORS[index % COLORS.length],
+                  borderRadius: '2px',
+                  flexShrink: 0
+                }} />
+                <span style={{ 
+                  fontSize: '12px', 
+                  color: '#666',
+                  lineHeight: 1.2,
+                  wordBreak: 'break-word'
+                }}>
+                  {seriesName}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     );
   } else {
     // Single series area chart
@@ -880,44 +987,75 @@ const renderScatterChart = (data: any[], config: ChartConfig) => {
     const seriesNames = [...new Set(data.map(item => item.series).filter(Boolean))];
     
     return (
-      <ResponsiveContainer width="100%" height="100%">
-        <ScatterChart data={data} margin={{ top: 20, right: 120, left: 20, bottom: 40 }}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis 
-            dataKey="x" 
-            label={{ value: config.x, position: 'insideBottom', offset: -10, style: { textAnchor: 'middle' } }}
-          />
-          <YAxis 
-            dataKey="y" 
-            label={{ value: config.y, angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' } }}
-          />
-          <Tooltip 
-            formatter={(value, name, props) => {
-              if (name === 'y') {
-                return [value, config.y || 'Value'];
-              }
-              return [value, name];
-            }}
-            labelFormatter={(label) => `${config.x}: ${label}`}
-          />
-          <Legend 
-            verticalAlign="top" 
-            align="right" 
-            layout="vertical"
-            iconType="line"
-            wrapperStyle={{ paddingBottom: '20px' }}
-          />
-          {seriesNames.map((seriesName, index) => (
-            <Scatter 
-              key={seriesName}
-              data={data.filter(item => item.series === seriesName)}
-              dataKey="y" 
-              fill={COLORS[index % COLORS.length]}
-              name={seriesName}
-            />
-          ))}
-        </ScatterChart>
-      </ResponsiveContainer>
+      <div style={{ display: 'flex', width: '100%', height: '100%' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <ScatterChart data={data} margin={{ top: 20, right: 20, left: 20, bottom: 40 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis 
+                dataKey="x" 
+                label={{ value: config.x, position: 'insideBottom', offset: -10, style: { textAnchor: 'middle' } }}
+              />
+              <YAxis 
+                dataKey="y" 
+                label={{ value: config.y, angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' } }}
+              />
+              <Tooltip 
+                formatter={(value, name, props) => {
+                  if (name === 'y') {
+                    return [value, config.y || 'Value'];
+                  }
+                  return [value, name];
+                }}
+                labelFormatter={(label) => `${config.x}: ${label}`}
+              />
+              {seriesNames.map((seriesName, index) => (
+                <Scatter 
+                  key={seriesName}
+                  data={data.filter(item => item.series === seriesName)}
+                  dataKey="y" 
+                  fill={COLORS[index % COLORS.length]}
+                  name={seriesName}
+                />
+              ))}
+            </ScatterChart>
+          </ResponsiveContainer>
+        </div>
+        
+        {/* Scrollable Legend */}
+        <div style={{ 
+          width: '140px', 
+          maxHeight: '100%', 
+          overflowY: 'auto', 
+          paddingLeft: '10px',
+          borderLeft: '1px solid #e5e7eb'
+        }}>
+          <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#666', marginBottom: '10px' }}>
+            {config.series || 'Series'}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {seriesNames.map((seriesName, index) => (
+              <div key={seriesName} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{
+                  width: '12px',
+                  height: '12px',
+                  backgroundColor: COLORS[index % COLORS.length],
+                  borderRadius: '2px',
+                  flexShrink: 0
+                }} />
+                <span style={{ 
+                  fontSize: '12px', 
+                  color: '#666',
+                  lineHeight: 1.2,
+                  wordBreak: 'break-word'
+                }}>
+                  {seriesName}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     );
   } else {
     // Single series scatter chart

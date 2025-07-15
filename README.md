@@ -209,7 +209,7 @@ The application automatically loads sample work packages and conversations when 
 - `POST /api/datavis` - Generate visualization configuration
   ```json
   {
-    "columns": ["column1","column2"],"message":"",
+    "columns": [{"name": "column1"}, {"name": "column2"}],
     "data_snippet": [{"column1": "value1", "column2": "value2"}]
   }
   ```

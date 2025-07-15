@@ -248,8 +248,17 @@ const applySimultaneousGrouping = (
   // Note: For other y-transforms like date_group, alphabetical, frequency, etc.
   // no additional filtering is needed - the transformation was already applied in Step 1
 
-  // Step 6: Sort alphabetically by x field, then y field, then series field (for grouping columns only)
-  return filteredCombinations.sort((a, b) => {
+  // Step 6: Apply group limiting if combinations exceed 30
+  let finalCombinations = filteredCombinations;
+  if (filteredCombinations.length > 30) {
+    console.log(`Simultaneous grouping combinations exceed 30 (${filteredCombinations.length}), limiting to top 30 by count`);
+    finalCombinations = filteredCombinations
+      .sort((a, b) => b.count - a.count)  // Sort by count descending
+      .slice(0, 30);  // Take top 30
+  }
+
+  // Step 7: Sort alphabetically by x field, then y field, then series field (for grouping columns only)
+  return finalCombinations.sort((a, b) => {
     const xCompare = String(a[xField]).localeCompare(String(b[xField]));
     if (xCompare !== 0) return xCompare;
 
@@ -318,6 +327,32 @@ const isGroupingTransform = (transform: string): boolean => {
   );
 };
 
+// Helper function to limit groups to 30 using topk:30 if needed
+const limitGroupsToThirty = (
+  data: any[],
+  groupField: string,
+  aggField: string,
+  seriesField: string | null,
+  aggTransform: string,
+): any[] => {
+  // Count unique groups
+  const uniqueGroups = new Set();
+  data.forEach(item => {
+    const groupKey = item[groupField];
+    const seriesKey = seriesField ? item[seriesField] : '';
+    uniqueGroups.add(`${groupKey}|||${seriesKey}`);
+  });
+
+  // If groups exceed 30, apply topk:30
+  if (uniqueGroups.size > 30) {
+    console.log(`Groups exceed 30 (${uniqueGroups.size}), applying topk:30 automatically`);
+    return applyTopKWithAggregation(data, groupField, aggField, seriesField, 30, aggTransform);
+  }
+
+  // Otherwise, apply normal aggregation
+  return applyUnifiedAggregation(data, groupField, aggField, seriesField, aggTransform);
+};
+
 // Apply grouping transformation with simultaneous aggregation
 const applyGroupingWithAggregation = (
   data: any[],
@@ -332,7 +367,7 @@ const applyGroupingWithAggregation = (
 
   if (groupTransform.startsWith("date_group:")) {
     const dateType = groupTransform.split(":")[1];
-    groupedData = applyDateGroupingWithAggregation(
+    const dateData = applyDateGroupingWithAggregation(
       data,
       groupField,
       aggField,
@@ -340,9 +375,13 @@ const applyGroupingWithAggregation = (
       dateType,
       aggTransform,
     );
+    // Apply group limiting if needed
+    groupedData = dateData.length > 30 ? 
+      applyTopKWithAggregation(data, groupField, aggField, seriesField, 30, aggTransform) :
+      dateData;
   } else if (groupTransform.startsWith("bin:")) {
     const binType = groupTransform.split(":")[1];
-    groupedData = applyBinningWithAggregation(
+    const binData = applyBinningWithAggregation(
       data,
       groupField,
       aggField,
@@ -350,6 +389,10 @@ const applyGroupingWithAggregation = (
       binType,
       aggTransform,
     );
+    // Apply group limiting if needed
+    groupedData = binData.length > 30 ? 
+      applyTopKWithAggregation(data, groupField, aggField, seriesField, 30, aggTransform) :
+      binData;
   } else if (groupTransform.startsWith("topk:")) {
     const k = parseInt(groupTransform.split(":")[1]);
     groupedData = applyTopKWithAggregation(
@@ -381,30 +424,32 @@ const applyGroupingWithAggregation = (
       aggTransform,
     );
   } else if (groupTransform === "alphabetical") {
-    groupedData = applyAlphabeticalWithAggregation(
+    // Apply alphabetical grouping with automatic group limiting
+    const alphabeticalData = applyAlphabeticalWithAggregation(
       data,
       groupField,
       aggField,
       seriesField,
       aggTransform,
     );
+    groupedData = alphabeticalData.length > 30 ? 
+      applyTopKWithAggregation(data, groupField, aggField, seriesField, 30, aggTransform) :
+      alphabeticalData;
   } else if (groupTransform === "frequency") {
-    groupedData = applyFrequencyWithAggregation(
+    // Apply frequency grouping with automatic group limiting
+    const frequencyData = applyFrequencyWithAggregation(
       data,
       groupField,
       aggField,
       seriesField,
       aggTransform,
     );
+    groupedData = frequencyData.length > 30 ? 
+      applyTopKWithAggregation(data, groupField, aggField, seriesField, 30, aggTransform) :
+      frequencyData;
   } else {
-    // Default case - just apply basic aggregation
-    groupedData = applyBasicAggregation(
-      data,
-      groupField,
-      aggField,
-      seriesField,
-      aggTransform,
-    );
+    // For basic aggregation without grouping transform, apply group limiting
+    groupedData = limitGroupsToThirty(data, groupField, aggField, seriesField, aggTransform);
   }
 
   return groupedData;
