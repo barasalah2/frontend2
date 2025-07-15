@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { ChevronUp, ChevronDown, Search, Filter, X, BarChart3 } from "lucide-react";
+import { ChevronUp, ChevronDown, Search, Filter, X, BarChart3, Maximize2, Minimize2, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -25,6 +25,8 @@ export function EnhancedWorkPackageTable({ data, conversationId }: EnhancedWorkP
   const [filterField, setFilterField] = useState<string>("all");
   const [filterValue, setFilterValue] = useState<string>("all");
   const [showFilters, setShowFilters] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showFullscreenModal, setShowFullscreenModal] = useState(false);
 
   const { toast } = useToast();
   const [generatedCharts, setGeneratedCharts] = useState<any>(null);
@@ -228,6 +230,7 @@ export function EnhancedWorkPackageTable({ data, conversationId }: EnhancedWorkP
 
 
 
+
   const hasActiveFilters = searchTerm || filterField !== "all" || filterValue !== "all" || sortField;
 
   if (!data || data.length === 0) {
@@ -269,6 +272,26 @@ export function EnhancedWorkPackageTable({ data, conversationId }: EnhancedWorkP
               Clear
             </Button>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsFullscreen(!isFullscreen)}
+            className="flex items-center gap-2"
+          >
+            {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+          </Button>
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowFullscreenModal(true)}
+            className="flex items-center gap-2"
+          >
+            <ExternalLink className="h-4 w-4" />
+            New Window
+          </Button>
+          
           <Button 
             size="sm"
             className="bg-workpack-blue hover:bg-blue-700 text-white transition-all duration-150"
@@ -375,9 +398,27 @@ export function EnhancedWorkPackageTable({ data, conversationId }: EnhancedWorkP
         {hasActiveFilters && " (filtered)"}
       </div>
 
-      {/* Table Container with Scroll */}
-      <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-        <div className="overflow-auto max-h-96 table-scroll">
+      {/* Table Container with Responsive Fullscreen */}
+      <div className={`border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden ${
+        isFullscreen ? 'fixed inset-0 z-50 bg-white dark:bg-gray-900 flex flex-col' : ''
+      }`}>
+        {isFullscreen && (
+          <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="text-lg font-semibold">Data Table - Fullscreen View</h2>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsFullscreen(false)}
+              className="flex items-center gap-2"
+            >
+              <Minimize2 className="h-4 w-4" />
+              Exit Fullscreen
+            </Button>
+          </div>
+        )}
+        <div className={`overflow-auto table-scroll ${
+          isFullscreen ? 'flex-1 max-h-none' : 'max-h-96'
+        }`}>
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
               <tr>
@@ -417,6 +458,58 @@ export function EnhancedWorkPackageTable({ data, conversationId }: EnhancedWorkP
           </table>
         </div>
       </div>
+
+      {/* Fullscreen Modal */}
+      <Dialog open={showFullscreenModal} onOpenChange={setShowFullscreenModal}>
+        <DialogContent className="max-w-[95vw] max-h-[95vh] w-full h-full">
+          <DialogHeader>
+            <DialogTitle>Data Table - New Window</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto">
+            <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+              <div className="overflow-auto max-h-[75vh] table-scroll">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
+                    <tr>
+                      {columns.map((column) => (
+                        <th
+                          key={column}
+                          onClick={() => handleSort(column)}
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 select-none border-r border-gray-200 dark:border-gray-600 last:border-r-0"
+                        >
+                          <div className="flex items-center space-x-1">
+                            <span>{column}</span>
+                            {getSortIcon(column)}
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                    {filteredAndSortedData.map((row, index) => (
+                      <tr
+                        key={index}
+                        className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                      >
+                        {columns.map((column) => (
+                          <td
+                            key={column}
+                            className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100 border-r border-gray-200 dark:border-gray-600 last:border-r-0"
+                          >
+                            <div className="max-w-xs truncate" title={String(row[column])}>
+                              {row[column]}
+                            </div>
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {filteredAndSortedData.length === 0 && data.length > 0 && (
         <div className="text-center py-8 text-gray-500 dark:text-gray-400">

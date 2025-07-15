@@ -1073,7 +1073,17 @@ const renderBarChart = (data: any[], config: ChartConfig) => {
               />
               <Tooltip 
                 labelFormatter={(label) => `${config.x}: ${label}`}
-                formatter={(value, name) => [value, name === 'y' ? config.y || 'Value' : name]}
+                formatter={(value, name) => [
+                  typeof value === 'number' ? value.toLocaleString() : value, 
+                  name === 'y' ? config.y || 'Value' : name
+                ]}
+                contentStyle={{
+                  backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                  border: 'none',
+                  borderRadius: '4px',
+                  color: 'white',
+                  fontSize: '12px'
+                }}
               />
               {seriesNames.map((seriesName, index) => (
                 <Bar 
@@ -1141,7 +1151,17 @@ const renderBarChart = (data: any[], config: ChartConfig) => {
           />
           <Tooltip 
             labelFormatter={(label) => `${config.x}: ${label}`}
-            formatter={(value, name) => [value, name === 'y' ? config.y || 'Value' : name]}
+            formatter={(value, name) => [
+              typeof value === 'number' ? value.toLocaleString() : value, 
+              name === 'y' ? config.y || 'Value' : name
+            ]}
+            contentStyle={{
+              backgroundColor: 'rgba(0, 0, 0, 0.8)',
+              border: 'none',
+              borderRadius: '4px',
+              color: 'white',
+              fontSize: '12px'
+            }}
           />
           <Bar dataKey="y" fill={COLORS[0]} />
         </BarChart>
@@ -1186,7 +1206,17 @@ const renderLineChart = (data: any[], config: ChartConfig) => {
               />
               <Tooltip 
                 labelFormatter={(label) => `${config.x}: ${label}`}
-                formatter={(value, name) => [value, name === 'y' ? config.y || 'Value' : name]}
+                formatter={(value, name) => [
+                  typeof value === 'number' ? value.toLocaleString() : value, 
+                  name === 'y' ? config.y || 'Value' : name
+                ]}
+                contentStyle={{
+                  backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                  border: 'none',
+                  borderRadius: '4px',
+                  color: 'white',
+                  fontSize: '12px'
+                }}
               />
               {seriesNames.map((seriesName, index) => (
                 <Line 
@@ -1252,7 +1282,17 @@ const renderLineChart = (data: any[], config: ChartConfig) => {
           />
           <Tooltip 
             labelFormatter={(label) => `${config.x}: ${label}`}
-            formatter={(value, name) => [value, name === 'y' ? config.y || 'Value' : name]}
+            formatter={(value, name) => [
+              typeof value === 'number' ? value.toLocaleString() : value, 
+              name === 'y' ? config.y || 'Value' : name
+            ]}
+            contentStyle={{
+              backgroundColor: 'rgba(0, 0, 0, 0.8)',
+              border: 'none',
+              borderRadius: '4px',
+              color: 'white',
+              fontSize: '12px'
+            }}
           />
           <Line 
             type="monotone" 
@@ -1302,7 +1342,17 @@ const renderAreaChart = (data: any[], config: ChartConfig) => {
               />
               <Tooltip 
                 labelFormatter={(label) => `${config.x}: ${label}`}
-                formatter={(value, name) => [value, name === 'y' ? config.y || 'Value' : name]}
+                formatter={(value, name) => [
+                  typeof value === 'number' ? value.toLocaleString() : value, 
+                  name === 'y' ? config.y || 'Value' : name
+                ]}
+                contentStyle={{
+                  backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                  border: 'none',
+                  borderRadius: '4px',
+                  color: 'white',
+                  fontSize: '12px'
+                }}
               />
               {seriesNames.map((seriesName, index) => (
                 <Area 
@@ -1369,7 +1419,17 @@ const renderAreaChart = (data: any[], config: ChartConfig) => {
           />
           <Tooltip 
             labelFormatter={(label) => `${config.x}: ${label}`}
-            formatter={(value, name) => [value, name === 'y' ? config.y || 'Value' : name]}
+            formatter={(value, name) => [
+              typeof value === 'number' ? value.toLocaleString() : value, 
+              name === 'y' ? config.y || 'Value' : name
+            ]}
+            contentStyle={{
+              backgroundColor: 'rgba(0, 0, 0, 0.8)',
+              border: 'none',
+              borderRadius: '4px',
+              color: 'white',
+              fontSize: '12px'
+            }}
           />
           <Area 
             type="monotone" 
@@ -1408,8 +1468,18 @@ const renderPieChart = (data: any[], config: ChartConfig) => {
           ))}
         </Pie>
         <Tooltip 
-          formatter={(value, name) => [value, config.y || 'Value']}
+          formatter={(value, name) => [
+            typeof value === 'number' ? value.toLocaleString() : value, 
+            config.y || 'Value'
+          ]}
           labelFormatter={(label) => `${config.x}: ${label}`}
+          contentStyle={{
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            border: 'none',
+            borderRadius: '4px',
+            color: 'white',
+            fontSize: '12px'
+          }}
         />
         <Legend />
       </PieChart>
@@ -1441,12 +1511,20 @@ const renderScatterChart = (data: any[], config: ChartConfig) => {
               />
               <Tooltip 
                 formatter={(value, name, props) => {
+                  const displayValue = typeof value === 'number' ? value.toLocaleString() : value;
                   if (name === 'y') {
-                    return [value, config.y || 'Value'];
+                    return [displayValue, config.y || 'Value'];
                   }
-                  return [value, name];
+                  return [displayValue, name];
                 }}
                 labelFormatter={(label) => `${config.x}: ${label}`}
+                contentStyle={{
+                  backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                  border: 'none',
+                  borderRadius: '4px',
+                  color: 'white',
+                  fontSize: '12px'
+                }}
               />
               {seriesNames.map((seriesName, index) => (
                 <Scatter 
@@ -1512,12 +1590,20 @@ const renderScatterChart = (data: any[], config: ChartConfig) => {
           />
           <Tooltip 
             formatter={(value, name, props) => {
+              const displayValue = typeof value === 'number' ? value.toLocaleString() : value;
               if (name === 'y') {
-                return [value, config.y || 'Value'];
+                return [displayValue, config.y || 'Value'];
               }
-              return [value, name];
+              return [displayValue, name];
             }}
             labelFormatter={(label) => `${config.x}: ${label}`}
+            contentStyle={{
+              backgroundColor: 'rgba(0, 0, 0, 0.8)',
+              border: 'none',
+              borderRadius: '4px',
+              color: 'white',
+              fontSize: '12px'
+            }}
           />
           <Scatter dataKey="y" fill={COLORS[0]} />
         </ScatterChart>
@@ -1575,7 +1661,17 @@ const renderHistogram = (data: any[], config: ChartConfig) => {
         />
         <Tooltip 
           labelFormatter={(label) => `${config.x} Range: ${label}`}
-          formatter={(value, name) => [value, name === 'count' ? 'Frequency' : name]}
+          formatter={(value, name) => [
+            typeof value === 'number' ? value.toLocaleString() : value, 
+            name === 'count' ? 'Frequency' : name
+          ]}
+          contentStyle={{
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            border: 'none',
+            borderRadius: '4px',
+            color: 'white',
+            fontSize: '12px'
+          }}
         />
         <Bar 
           dataKey="count" 
