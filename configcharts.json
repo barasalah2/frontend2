@@ -84,7 +84,7 @@
   {
     "type": "histogram",
     "x": "total_tag_qty",
-    "y": null,
+    "y": "iwp_id",
     "series": null,
     "title": "Distribution of Total Tag Quantities",
     "transform_x": "bin:auto",

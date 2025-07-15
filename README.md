@@ -5,7 +5,7 @@ A comprehensive full-stack web application that provides an AI-powered chat inte
 ## 🚀 Features
 
 - **AI-Powered Chat Interface**: Interactive conversations with intelligent responses about work packages
-- **Advanced Data Visualization**: 19+ chart types including bar, line, scatter, pie, histogram, treemap, and more
+- **Advanced Data Visualization**: 10 fully supported chart types including bar, line, scatter, pie, histogram, and Gantt charts
 - **External AI Integration**: Direct integration with external AI visualization service via REST API
 - **Interactive Chart Generation**: Modal dialog for custom visualization requests with natural language
 - **Table-Embedded Charts**: Charts display directly under data tables, not in chat conversation
@@ -101,7 +101,7 @@ The application integrates with an external AI visualization service for intelli
 - **Request Format**:
 ```json
 {
-  "columns": [{"name": "column1"}, {"name": "column2"}],
+  "columns": ["column1", "column2", "column3"],
   "data_snippet": [...],
   "total_rows": 150,
   "message": "Optional custom visualization request"
@@ -116,41 +116,29 @@ The application integrates with an external AI visualization service for intelli
 5. **Charts display immediately** under the table
 
 ### Supported Chart Types
-The system supports 19+ visualization types:
+The system supports 10 fully implemented visualization types:
 
 #### Core Charts
-- **Bar Chart**: Vertical bars for categorical data
-- **Horizontal Bar Chart**: Horizontal bars for long category names  
-- **Stacked Bar Chart**: Multi-series stacked data
-- **Grouped Bar Chart**: Side-by-side category comparison
-- **Line Chart**: Time series and trend analysis
-- **Area Chart**: Filled line charts for cumulative data
-- **Pie Chart**: Proportional data with percentages
-- **Donut Chart**: Pie chart with hollow center
-- **Scatter Plot**: Two-variable correlation analysis
-- **Bubble Chart**: Three-variable scatter with size dimension
-
-#### Advanced Charts
-- **Histogram**: Distribution analysis with connected bars
-- **Waterfall Chart**: Cumulative impact visualization
-- **Funnel Chart**: Process stage analysis
-- **Box Plot**: Statistical distribution summary
-- **Violin Plot**: Distribution shape visualization
-- **Heatmap**: Two-dimensional data density
-- **Treemap**: Hierarchical data with area-proportional rectangles
-- **Sunburst Chart**: Multi-level hierarchical data
-- **Radar Chart**: Multi-dimensional comparison
+- **Bar Chart** (`"type": "bar"`): Vertical bars for categorical data with multi-series support
+- **Horizontal Bar Chart** (`"type": "horizontal_bar"`): Horizontal bars for long category names  
+- **Stacked Bar Chart** (`"type": "stacked_bar"`): Multi-series stacked data visualization
+- **Line Chart** (`"type": "line"`): Time series and trend analysis with multi-series support
+- **Area Chart** (`"type": "area"`): Filled line charts for cumulative data visualization
+- **Pie Chart** (`"type": "pie"`): Proportional data with percentages and interactive tooltips
+- **Scatter Plot** (`"type": "scatter"`): Two-variable correlation analysis with multi-series support
+- **Histogram** (`"type": "histogram"`): Distribution analysis with connected bars
 
 #### Specialized Charts
-- **Gantt Chart**: Project timeline visualization using Visx
-- **Dumbbell Chart**: Before/after comparison with connected dots
+- **Gantt Chart** (`"type": "gantt"`): Professional timeline visualization using Visx with interactive features
+- **Dumbbell Chart** (`"type": "dumbbell"`): Before/after comparison with connected dots for timeline analysis
 
 ### Chart Features
-- **Interactive Tooltips**: Hover for detailed data points
-- **Responsive Design**: Automatic sizing for different screens
-- **Color Themes**: Consistent color palette across all charts
-- **Data Transformations**: Support for aggregations, grouping, and filtering
-- **Error Handling**: Graceful fallbacks for unsupported combinations
+- **Interactive Tooltips**: Hover for detailed data points with formatted values
+- **Responsive Design**: Automatic sizing for different screens and containers
+- **Color Themes**: Consistent color palette across all chart types
+- **Multi-Series Support**: Most charts support multiple data series with legends
+- **Data Transformations**: Support for aggregations, grouping, date transformations, and filtering
+- **Professional Styling**: Consistent styling with axis labels, grid lines, and legends
 
 ## 🔄 Recent Updates (July 15, 2025)
 
@@ -221,7 +209,7 @@ The application automatically loads sample work packages and conversations when 
 - `POST /api/datavis` - Generate visualization configuration
   ```json
   {
-    "columns": [{"name": "column1"}, {"name": "column2"}],
+    "columns": ["column1","column2"],"message":"",
     "data_snippet": [{"column1": "value1", "column2": "value2"}]
   }
   ```
@@ -232,9 +220,9 @@ The application automatically loads sample work packages and conversations when 
 - **ChatMessage**: Displays individual chat messages with support for text, tables, and visualizations
 - **ChatInput**: Message input with validation and submission handling
 - **ConversationSidebar**: Navigation and conversation management
-- **ChartRenderer**: Renders various chart types with responsive design
-  - Standard charts: scatter, bar, line, pie, area, histogram
-  - Advanced charts: Gantt (visx-based), dumbbell, fallback rendering
+- **ChartRenderer**: Renders 10 fully supported chart types with responsive design
+  - Core charts: scatter, bar (vertical/horizontal/stacked), line, area, pie, histogram
+  - Specialized charts: Gantt (visx-based), dumbbell timeline visualization
 - **GanttChart**: Professional timeline visualization with visx library
   - Interactive tooltips with task details and duration calculations
   - Color-coded series support with legends
@@ -251,24 +239,23 @@ The application automatically loads sample work packages and conversations when 
 ## 📈 Data Visualization Features
 
 ### Chart Types Supported
-1. **Scatter Plot**: For correlation analysis between two variables
-2. **Bar Chart**: For categorical data comparison (including grouped, stacked, and horizontal bars)
-3. **Line Chart**: For trend analysis over time with multi-series support
-4. **Area Chart**: For filled area visualizations showing trends
-5. **Pie Chart**: For percentage distribution and composition analysis
-6. **Histogram**: For frequency distribution with connected bars
-7. **Gantt Chart**: Professional timeline visualization using visx library with interactive features
-8. **Dumbbell Chart**: For comparing two values across categories
-9. **Fallback Charts**: Automatic fallback rendering for advanced chart types
+1. **Scatter Plot** (`"type": "scatter"`): For correlation analysis between two variables with multi-series support
+2. **Bar Chart** (`"type": "bar"`): For categorical data comparison (including grouped, stacked, and horizontal variants)
+3. **Line Chart** (`"type": "line"`): For trend analysis over time with multi-series support and date handling
+4. **Area Chart** (`"type": "area"`): For filled area visualizations showing cumulative trends
+5. **Pie Chart** (`"type": "pie"`): For percentage distribution and composition analysis with interactive tooltips
+6. **Histogram** (`"type": "histogram"`): For frequency distribution with connected bars and automatic binning
+7. **Gantt Chart** (`"type": "gantt"`): Professional timeline visualization using visx library with interactive tooltips
+8. **Dumbbell Chart** (`"type": "dumbbell"`): For comparing planned vs actual dates with connected dot visualization
 
 ### Transform Operations
-- **Date Grouping**: Group dates by year, quarter, month_year, month, day_of_week, or hour
-- **Aggregation**: Sum, count, mean, median, min, max, std operations
-- **Top-K/Bottom-K**: Show top/bottom N results for better focus
-- **Binning**: Automatic, quartile, or custom binning for continuous data
-- **Statistical**: Log scale, normalize, z-score transformations
-- **Categorical**: Alphabetical sorting, frequency sorting, other grouping
-- **X2 Field Support**: Dual-axis transformations for charts like Gantt timelines
+- **Date Grouping**: `"transform_x": "date_group:year"`, `"date_group:quarter"`, `"date_group:month_year"`, `"date_group:month"`, `"date_group:day_of_week"`, `"date_group:hour"`
+- **Aggregation**: `"transform_y": "sum"`, `"count"`, `"mean"`, `"median"`, `"min"`, `"max"`, `"std"`
+- **Top-K/Bottom-K**: `"transform_x": "topk:10"`, `"bottomk:5"` - Show top/bottom N results for better focus
+- **Binning**: `"transform_x": "bin:auto"`, `"bin:quartile"`, `"bin:10"` - Automatic, quartile, or custom binning for continuous data
+- **Statistical**: `"transform_y": "log_scale"`, `"normalize"`, `"z_score"` - Statistical transformations
+- **Categorical**: `"transform_x": "alphabetical"`, `"frequency"`, `"other_group:5"` - Sorting and grouping operations
+- **X2 Field Support**: Dual-axis transformations for charts like Gantt timelines using `"x2"` field
 
 ### Advanced Features
 - **Interactive Charts**: Hover tooltips, legends, and responsive design
@@ -297,7 +284,7 @@ The application features a professional Gantt chart implementation using the vis
 - **Legend Support**: Right-side legend showing all series with color indicators
 - **Professional Styling**: Grid lines, rounded corners, and consistent theming
 
-#### Data Format Support
+#### Chart Configuration Examples
 ```json
 {
   "type": "gantt",
@@ -306,6 +293,24 @@ The application features a professional Gantt chart implementation using the vis
   "y": "iwp_id",          // Task identifier
   "series": "cwp_name",   // Series for color coding
   "transform_x": "topk:20" // Optional transformations
+}
+
+{
+  "type": "bar",
+  "x": "status",          // Category field
+  "y": "progress",        // Value field
+  "series": "team",       // Optional series field
+  "transform_x": "alphabetical",
+  "transform_y": "mean"
+}
+
+{
+  "type": "scatter",
+  "x": "tag_count",       // X-axis numeric field
+  "y": "bom_count",       // Y-axis numeric field
+  "series": "status",     // Optional series field
+  "transform_x": "topk:20",
+  "transform_y": "topk:20"
 }
 ```
 

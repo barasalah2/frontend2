@@ -140,7 +140,7 @@ export function EnhancedWorkPackageTable({ data, conversationId }: EnhancedWorkP
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          columns: columns.map(col => ({ name: col })),
+          columns: columns,
           data_snippet: dataSnippet,
           total_rows: data.length,
           message: visualizationMessage.trim() || undefined
@@ -269,18 +269,18 @@ export function EnhancedWorkPackageTable({ data, conversationId }: EnhancedWorkP
               Clear
             </Button>
           )}
+          <Button 
+            size="sm"
+            className="bg-workpack-blue hover:bg-blue-700 text-white transition-all duration-150"
+            disabled={isGeneratingCharts}
+            onClick={() => setShowVisualizationDialog(true)}
+          >
+            <BarChart3 className="h-4 w-4 mr-2" />
+            {isGeneratingCharts ? "Generating..." : "Generate Charts"}
+          </Button>
+          
           <Dialog open={showVisualizationDialog} onOpenChange={setShowVisualizationDialog}>
-            <DialogTrigger asChild>
-              <Button 
-                size="sm"
-                className="bg-workpack-blue hover:bg-blue-700 text-white"
-                disabled={isGeneratingCharts}
-              >
-                <BarChart3 className="h-4 w-4 mr-2" />
-                {isGeneratingCharts ? "Generating..." : "Generate Charts"}
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className="sm:max-w-[500px] animate-in fade-in-0 zoom-in-95 duration-200">
               <DialogHeader>
                 <DialogTitle>Generate Data Visualizations</DialogTitle>
                 <DialogDescription>

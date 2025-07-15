@@ -83,8 +83,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Columns and data_snippet are required" });
       }
 
+      // Ensure columns is an array of strings
+      const columnList = Array.isArray(columns) ? columns : [];
+
       // Generate visualization configuration based on data analysis
-      const visualizations = generateVisualizationConfig(columns, data_snippet);
+      const visualizations = generateVisualizationConfig(columnList, data_snippet);
       
       // Save chart data as a message if requested and conversation exists
       if (save_chart && conversation_id) {
@@ -268,24 +271,24 @@ function generateAIResponse(question: string): string {
   return "I've analyzed your query and can provide detailed insights about work packages, schedules, resource allocation, and project progress. Please specify what aspect of the AWP system you'd like me to focus on.";
 }
 
-function generateVisualizationConfig(columns: any[], data_snippet: any[]) {
+function generateVisualizationConfig(columns: string[], data_snippet: any[]) {
   // Analyze column types
-  const columnTypes = columns.map(col => {
-    const sampleValues = data_snippet.map(row => row[col.name]).filter(v => v != null);
+  const columnTypes = columns.map(colName => {
+    const sampleValues = data_snippet.map(row => row[colName]).filter(v => v != null);
     
     // Check if it's a time/date column
-    if (col.name.toLowerCase().includes('date') || col.name.toLowerCase().includes('time')) {
-      return { ...col, type: 'time' };
+    if (colName.toLowerCase().includes('date') || colName.toLowerCase().includes('time')) {
+      return { name: colName, type: 'time' };
     }
     
     // Check if it's numeric
     const numericValues = sampleValues.filter(v => !isNaN(Number(v)));
     if (numericValues.length > sampleValues.length * 0.8) {
-      return { ...col, type: 'numeric' };
+      return { name: colName, type: 'numeric' };
     }
     
     // Otherwise categorical
-    return { ...col, type: 'categorical' };
+    return { name: colName, type: 'categorical' };
   });
 
   const charts = [];
