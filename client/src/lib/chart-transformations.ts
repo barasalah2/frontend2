@@ -48,9 +48,10 @@ export const transformData = (data: any[], config: ChartConfig): any => {
         result.x2 = originalData[index][config.x2];
       }
       
-      // DON'T apply x2 transformation for Gantt charts - preserve original finish dates
-      // x2 field should remain as original dates for proper timeline visualization
-      // Only transform x field for grouping/filtering purposes
+      // Apply same transformation to x2 field as x field (transform_x)
+      if (config.x2 && result.x2 && config.transform_x) {
+        result.x2 = transformSingleValue(result.x2, config.x2, config.transform_x);
+      }
       
       return result;
     }),
@@ -80,6 +81,7 @@ const applyCombinedTransform = (data: any[], config: ChartConfig): any[] => {
       seriesField,
       xTransform,
       yTransform,
+      x2Field,
     );
   }
 
@@ -92,6 +94,8 @@ const applyCombinedTransform = (data: any[], config: ChartConfig): any[] => {
       seriesField,
       xTransform,
       yTransform,
+      x2Field,
+      xTransform,
     );
   }
 
@@ -103,6 +107,8 @@ const applyCombinedTransform = (data: any[], config: ChartConfig): any[] => {
       xField,
       seriesField,
       yTransform,
+      xTransform,
+      x2Field,
       xTransform,
     );
   }
@@ -129,6 +135,7 @@ const applySimultaneousGrouping = (
   seriesField: string | null,
   xTransform: string,
   yTransform: string,
+  x2Field?: string,
 ): any[] => {
   // Step 1: Apply individual transformations to create transformed values
   let transformedData = [...data];
@@ -145,6 +152,14 @@ const applySimultaneousGrouping = (
     [yField]: transformSingleValue(item[yField], yField, yTransform),
   }));
 
+  // Transform x2 field if it exists (apply same transformation as x field)
+  if (x2Field) {
+    transformedData = transformedData.map((item) => ({
+      ...item,
+      [x2Field]: transformSingleValue(item[x2Field], x2Field, xTransform),
+    }));
+  }
+
   // Step 2: Group by transformed x, y, and series fields to create unique combinations
   const grouped = transformedData.reduce(
     (acc, item) => {
@@ -154,7 +169,9 @@ const applySimultaneousGrouping = (
       const combinedKey = `${xKey}|||${yKey}|||${seriesKey}`;
 
       if (!acc[combinedKey]) {
+        const firstItem = item;
         acc[combinedKey] = {
+          ...firstItem, // Preserve all fields from first item including x2
           [xField]: xKey,
           [yField]: yKey,
           ...(seriesField && { [seriesField]: seriesKey }),
@@ -169,9 +186,7 @@ const applySimultaneousGrouping = (
 
   // Step 3: Calculate counts for each combination
   const combinations = Object.values(grouped).map((group: any) => ({
-    [xField]: group[xField],
-    [yField]: group[yField],
-    ...(seriesField && { [seriesField]: group[seriesField] }),
+    ...group, // Preserve all fields from the group including x2
     count: group.items.length,
     value: group.items.length,
     items: group.items,
@@ -327,9 +342,11 @@ const applyGroupingAggregation = (
   aggField: string,
   seriesField: string | null,
   aggTransform: string,
+  x2Field?: string,
+  xTransform?: string,
 ): any[] => {
   // Apply normal aggregation without any group limiting
-  return applyUnifiedAggregation(data, groupField, aggField, seriesField, aggTransform);
+  return applyUnifiedAggregation(data, groupField, aggField, seriesField, aggTransform, x2Field, xTransform);
 };
 
 // Apply grouping transformation with simultaneous aggregation
@@ -340,6 +357,8 @@ const applyGroupingWithAggregation = (
   seriesField: string | null,
   groupTransform: string,
   aggTransform: string,
+  x2Field?: string,
+  xTransform?: string,
 ): any[] => {
   // First, apply the grouping transformation to create groups
   let groupedData: any[] = [];
@@ -353,6 +372,8 @@ const applyGroupingWithAggregation = (
       seriesField,
       dateType,
       aggTransform,
+      x2Field,
+      xTransform,
     );
     // Apply date grouping data without limiting
     groupedData = dateData;
@@ -365,6 +386,8 @@ const applyGroupingWithAggregation = (
       seriesField,
       binType,
       aggTransform,
+      x2Field,
+      xTransform,
     );
     groupedData = binData;
   } else if (groupTransform.startsWith("topk:")) {
@@ -376,6 +399,8 @@ const applyGroupingWithAggregation = (
       seriesField,
       k,
       aggTransform,
+      x2Field,
+      xTransform,
     );
   } else if (groupTransform.startsWith("bottomk:")) {
     const k = parseInt(groupTransform.split(":")[1]);
@@ -386,6 +411,8 @@ const applyGroupingWithAggregation = (
       seriesField,
       k,
       aggTransform,
+      x2Field,
+      xTransform,
     );
   } else if (groupTransform.startsWith("other_group:")) {
     const threshold = parseFloat(groupTransform.split(":")[1]);
@@ -396,6 +423,8 @@ const applyGroupingWithAggregation = (
       seriesField,
       threshold,
       aggTransform,
+      x2Field,
+      xTransform,
     );
   } else if (groupTransform === "alphabetical") {
     // Apply alphabetical grouping with automatic group limiting
@@ -405,6 +434,8 @@ const applyGroupingWithAggregation = (
       aggField,
       seriesField,
       aggTransform,
+      x2Field,
+      xTransform,
     );
     groupedData = alphabeticalData;
   } else if (groupTransform === "frequency") {
@@ -415,11 +446,13 @@ const applyGroupingWithAggregation = (
       aggField,
       seriesField,
       aggTransform,
+      x2Field,
+      xTransform,
     );
     groupedData = frequencyData;
   } else {
     // For basic aggregation without grouping transform, apply normal aggregation
-    groupedData = applyGroupingAggregation(data, groupField, aggField, seriesField, aggTransform);
+    groupedData = applyGroupingAggregation(data, groupField, aggField, seriesField, aggTransform, x2Field, xTransform);
   }
 
   return groupedData;
@@ -511,6 +544,8 @@ export const applyDateGroupingWithAggregation = (
   seriesField: string | null,
   dateType: string,
   aggTransform: string,
+  x2Field?: string,
+  xTransform?: string,
 ): any[] => {
   // First transform the date field values to create grouped data
   const transformedData = data.map((item) => {
@@ -554,6 +589,8 @@ export const applyDateGroupingWithAggregation = (
     aggField,
     seriesField,
     aggTransform,
+    x2Field,
+    xTransform,
   );
 };
 
@@ -564,6 +601,8 @@ const applyUnifiedAggregation = (
   aggField: string,
   seriesField: string | null,
   aggTransform: string,
+  x2Field?: string,
+  xTransform?: string,
 ): any[] => {
   // Group data by the grouping field and series field (if present)
   const grouped = data.reduce(
@@ -596,6 +635,8 @@ const applyUnifiedAggregation = (
       count: group.items.length,
     };
 
+
+
     // Apply aggregation to the target field
     if (aggField && aggTransform) {
       const aggregatedValue = calculateAggregation(
@@ -605,6 +646,16 @@ const applyUnifiedAggregation = (
       );
       groupResult[aggField] = aggregatedValue;
       groupResult.value = aggregatedValue;
+    }
+
+    // Ensure x2 field is preserved at top level during aggregation
+    if (x2Field && !groupResult[x2Field] && group.items && group.items.length > 0) {
+      groupResult[x2Field] = group.items[0][x2Field];
+    }
+
+    // Apply same transformation to x2 field as x field (transform_x) if both exist
+    if (x2Field && xTransform && groupResult[x2Field]) {
+      groupResult[x2Field] = transformSingleValue(groupResult[x2Field], x2Field, xTransform);
     }
 
     return groupResult;
@@ -654,6 +705,8 @@ export const applyTopKWithAggregation = (
   seriesField: string | null,
   k: number,
   aggTransform: string,
+  x2Field?: string,
+  xTransform?: string,
 ): any[] => {
   // Apply unified aggregation to get all groups
   const aggregated = applyUnifiedAggregation(
@@ -662,6 +715,8 @@ export const applyTopKWithAggregation = (
     aggField,
     seriesField,
     aggTransform,
+    x2Field,
+    xTransform,
   );
 
   // Sort by count or aggregated value and take top K (for grouping columns only)
@@ -678,6 +733,8 @@ export const applyBottomKWithAggregation = (
   seriesField: string | null,
   k: number,
   aggTransform: string,
+  x2Field?: string,
+  xTransform?: string,
 ): any[] => {
   // Apply unified aggregation to get all groups
   const aggregated = applyUnifiedAggregation(
@@ -686,6 +743,8 @@ export const applyBottomKWithAggregation = (
     aggField,
     seriesField,
     aggTransform,
+    x2Field,
+    xTransform,
   );
 
   // Sort by count or aggregated value (ascending for bottom K) and take bottom K (for grouping columns only)
@@ -702,6 +761,8 @@ export const applyBinningWithAggregation = (
   seriesField: string | null,
   binType: string,
   aggTransform: string,
+  x2Field?: string,
+  xTransform?: string,
 ): any[] => {
   const values = data
     .map((item) => parseFloat(item[groupField]))
@@ -757,6 +818,8 @@ export const applyBinningWithAggregation = (
     aggField,
     seriesField,
     aggTransform,
+    x2Field,
+    xTransform,
   );
 };
 
@@ -767,6 +830,8 @@ export const applyOtherGroupingWithAggregation = (
   seriesField: string | null,
   threshold: number,
   aggTransform: string,
+  x2Field?: string,
+  xTransform?: string,
 ): any[] => {
   // First, calculate group sizes to determine which should be "Other"
   const groupCounts = data.reduce(
@@ -799,6 +864,8 @@ export const applyOtherGroupingWithAggregation = (
     aggField,
     seriesField,
     aggTransform,
+    x2Field,
+    xTransform,
   );
 };
 
@@ -808,6 +875,8 @@ export const applyAlphabeticalWithAggregation = (
   aggField: string,
   seriesField: string | null,
   aggTransform: string,
+  x2Field?: string,
+  xTransform?: string,
 ): any[] => {
   // Apply unified aggregation
   const aggregated = applyUnifiedAggregation(
@@ -816,6 +885,8 @@ export const applyAlphabeticalWithAggregation = (
     aggField,
     seriesField,
     aggTransform,
+    x2Field,
+    xTransform,
   );
 
   // Sort alphabetically by group field, then series field (for grouping columns only)
@@ -840,6 +911,8 @@ export const applyFrequencyWithAggregation = (
   aggField: string,
   seriesField: string | null,
   aggTransform: string,
+  x2Field?: string,
+  xTransform?: string,
 ): any[] => {
   // Apply unified aggregation
   const aggregated = applyUnifiedAggregation(
@@ -848,6 +921,8 @@ export const applyFrequencyWithAggregation = (
     aggField,
     seriesField,
     aggTransform,
+    x2Field,
+    xTransform,
   );
 
   // Sort by frequency (count) in descending order for grouping columns only
@@ -860,6 +935,8 @@ export const applyBasicAggregation = (
   aggField: string,
   seriesField: string | null,
   aggTransform: string,
+  x2Field?: string,
+  xTransform?: string,
 ): any[] => {
   // Simply apply unified aggregation - this is the base case
   return applyUnifiedAggregation(
@@ -868,6 +945,8 @@ export const applyBasicAggregation = (
     aggField,
     seriesField,
     aggTransform,
+    x2Field,
+    xTransform,
   );
 };
 

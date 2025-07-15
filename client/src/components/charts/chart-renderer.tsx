@@ -245,7 +245,7 @@ const GanttChart: React.FC<GanttProps> = ({ data, config, width = 800, height = 
     );
   }
 
-  const margin = { top: 40, left: 300, right: 150, bottom: 60 };
+  const margin = { top: 40, left: 300, right: 210, bottom: 60 };
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
 
@@ -682,7 +682,7 @@ const GanttChart: React.FC<GanttProps> = ({ data, config, width = 800, height = 
 
             {/* Axis Labels */}
             <text
-              x={(width - 140) / 2}
+              x={(width - 200) / 2}
               y={height - 10}
               textAnchor="middle"
               fill="var(--muted-foreground)"
@@ -708,7 +708,7 @@ const GanttChart: React.FC<GanttProps> = ({ data, config, width = 800, height = 
 
       {/* Scrollable Legend Panel */}
       <div style={{ 
-        width: '140px', 
+        width: '200px', 
         borderLeft: '1px solid var(--border)', 
         padding: '16px 12px',
         backgroundColor: 'var(--background)',
@@ -992,7 +992,7 @@ const DumbbellChart: React.FC<DumbbellProps> = ({ data, config, width = 900, hei
       
       {/* Scrollable Legend */}
       <div style={{ 
-        width: '140px', 
+        width: '200px', 
         maxHeight: '100%', 
         overflowY: 'auto', 
         paddingLeft: '10px',

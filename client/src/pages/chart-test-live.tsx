@@ -137,6 +137,15 @@ const sampleConfigs = [
     rationale: "Shows the planned start and finish dates for each IWP"
   },
   {
+    type: "gantt",
+    x: "iwp_plan_date",
+    x2: "iwp_plan_finish_date",
+    y: "iwp_id",
+    title: "IWP Timeline (Quarterly)",
+    transform_x: "date_group:quarter",
+    rationale: "Shows the planned start and finish dates for each IWP grouped by quarter"
+  },
+  {
     type: "dumbbell",
     x: "iwp_plan_finish_date",
     x2: "iwp_actual_finish_date",
