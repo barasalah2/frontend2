@@ -143,6 +143,9 @@ const GanttChart: React.FC<GanttProps> = ({ data, config, width = 800, height = 
   let nullCount = 0;
   let invalidDateCount = 0;
   
+  // Debug: Check raw input data format first
+  console.log('Gantt Chart - Raw input data sample:', data.slice(0, 2));
+  
   const parsedData = data.map((d, index) => {
 
     
@@ -251,6 +254,17 @@ const GanttChart: React.FC<GanttProps> = ({ data, config, width = 800, height = 
   
   // Debug: log tasks to ensure all are included
   console.log('Gantt Chart - Total tasks:', tasks.length, 'Sample tasks:', tasks.slice(0, 5));
+  
+  // Debug: Check first few data items to see what dates we're working with
+  console.log('Gantt Chart Debug - Config:', { x: config.x, x2: config.x2, y: config.y, series: config.series });
+  console.log('Gantt Chart Debug - Sample parsed data:', parsedData.slice(0, 3).map(d => ({
+    y: d.y,
+    originalX: d.x,
+    originalX2: d.x2,
+    startDate: d.startDate?.toISOString(),
+    endDate: d.endDate?.toISOString(),
+    series: d.series
+  })));
 
   // Dynamic padding based on dataset size
   const getPadding = (dataLength: number) => {
@@ -319,10 +333,10 @@ const GanttChart: React.FC<GanttProps> = ({ data, config, width = 800, height = 
   const needsScroll = height > 600; // If chart height exceeds 600px, we need scroll
   
   return (
-    <div style={{ position: 'relative', width: '100%' }}>
+    <div style={{ display: 'flex', width: '100%', height: '100%' }}>
       {needsScroll ? (
         // Scrollable layout with sticky x-axis
-        <div style={{ position: 'relative', width: '100%', height: '600px' }}>
+        <div style={{ flex: 1, minWidth: 0, position: 'relative', width: '100%', height: '600px' }}>
           {/* Sticky X-axis container */}
           <div style={{ 
             position: 'sticky', 
@@ -348,24 +362,42 @@ const GanttChart: React.FC<GanttProps> = ({ data, config, width = 800, height = 
                     opacity={0.6}
                   />
                 ))}
-                {/* X-axis */}
-                <AxisBottom
-                  top={20}
-                  scale={xScale}
-                  numTicks={8}
-                  tickFormat={timeFormat("%b %d")}
+                {/* Custom X-axis with rotated labels */}
+                <line
+                  x1={0}
+                  x2={innerWidth}
+                  y1={20}
+                  y2={20}
                   stroke="var(--border)"
                   strokeWidth={1}
-                  tickStroke="var(--border)"
-                  tickLength={6}
-                  tickLabelProps={() => ({ 
-                    fontSize: 11, 
-                    dy: "0.33em",
-                    fill: "var(--foreground)",
-                    textAnchor: "middle",
-                    fontWeight: 500
-                  })}
                 />
+                {xScale.ticks(6).map((tick, i) => {
+                  const x = xScale(tick);
+                  const label = timeFormat("%b %Y")(tick);
+                  return (
+                    <g key={`sticky-x-tick-${i}`}>
+                      <line
+                        x1={x}
+                        x2={x}
+                        y1={20}
+                        y2={26}
+                        stroke="var(--border)"
+                        strokeWidth={1}
+                      />
+                      <text
+                        x={x}
+                        y={40}
+                        fill="var(--foreground)"
+                        fontSize={9}
+                        textAnchor="start"
+                        fontWeight={500}
+                        transform={`rotate(-45, ${x}, 40)`}
+                      >
+                        {label}
+                      </text>
+                    </g>
+                  );
+                })}
                 {/* X-axis Label */}
                 <text
                   x={innerWidth / 2}
@@ -437,8 +469,15 @@ const GanttChart: React.FC<GanttProps> = ({ data, config, width = 800, height = 
                       onMouseEnter={(event) => {
                         showTooltip({
                           tooltipData: d,
-                          tooltipLeft: startX + barWidth / 2,
-                          tooltipTop: barY + barHeight / 2,
+                          tooltipLeft: event.clientX,
+                          tooltipTop: event.clientY - 20,
+                        });
+                      }}
+                      onMouseMove={(event) => {
+                        showTooltip({
+                          tooltipData: d,
+                          tooltipLeft: event.clientX,
+                          tooltipTop: event.clientY - 20,
                         });
                       }}
                       onMouseLeave={() => hideTooltip()}
@@ -446,23 +485,44 @@ const GanttChart: React.FC<GanttProps> = ({ data, config, width = 800, height = 
                   );
                 })}
 
-                {/* Y-axis */}
-                <AxisLeft
-                  scale={yScale}
+                {/* Custom Y-axis with better distribution */}
+                <line
+                  x1={0}
+                  x2={0}
+                  y1={60}
+                  y2={height - 60}
                   stroke="var(--border)"
                   strokeWidth={1}
-                  tickStroke="var(--border)"
-                  tickLength={6}
-                  tickLabelProps={() => ({ 
-                    fontSize: 11, 
-                    dx: "-0.5em",
-                    dy: "0.25em",
-                    fill: "var(--foreground)",
-                    textAnchor: "end",
-                    dominantBaseline: "middle",
-                    fontWeight: 500
-                  })}
                 />
+                {/* Show ALL task labels - full length in scrollable view */}
+                {tasks.map((task, i) => {
+                  const y = yScale(task);
+                  if (y === undefined) return null;
+                  
+                  return (
+                    <g key={`sticky-y-tick-${i}`}>
+                      <line
+                        x1={-6}
+                        x2={0}
+                        y1={y + yScale.bandwidth() / 2}
+                        y2={y + yScale.bandwidth() / 2}
+                        stroke="var(--border)"
+                        strokeWidth={1}
+                      />
+                      <text
+                        x={-10}
+                        y={y + yScale.bandwidth() / 2}
+                        fill="var(--foreground)"
+                        fontSize={6}
+                        textAnchor="end"
+                        dominantBaseline="middle"
+                        fontWeight={500}
+                      >
+                        {task}
+                      </text>
+                    </g>
+                  );
+                })}
                 
                 {/* Y-axis Label */}
                 <text
@@ -482,166 +542,213 @@ const GanttChart: React.FC<GanttProps> = ({ data, config, width = 800, height = 
         </div>
       ) : (
         // Normal layout for smaller charts
-        <svg width={width} height={height} style={{ display: 'block' }}>
-          <Group top={margin.top} left={margin.left}>
-          {/* Grid lines */}
-          {xScale.ticks().map((tick, i) => (
-            <line
-              key={`grid-x-${i}`}
-              x1={xScale(tick)}
-              x2={xScale(tick)}
-              y1={0}
-              y2={innerHeight}
-              stroke="var(--border)"
-              strokeDasharray="3,3"
-              strokeWidth={1}
-              opacity={0.6}
-            />
-          ))}
-          
-          {/* Bars */}
-          {parsedData.map((d, i) => {
-            const barY = yScale(d.y);
-            const barHeight = yScale.bandwidth();
-            
-            if (barY === undefined || barHeight === undefined || !d.startDate || !d.endDate) {
-              return null;
-            }
-            
-            const startX = xScale(d.startDate);
-            const endX = xScale(d.endDate);
-            
-            if (startX === undefined || endX === undefined) {
-              return null;
-            }
-            
-            const barWidth = Math.max(2, endX - startX); // Minimum width of 2px
-            
-            return (
-              <VisxBar
-                key={`gantt-bar-${i}`}
-                x={startX}
-                y={barY}
-                width={barWidth}
-                height={barHeight}
-                fill={colorScale(d.series)}
-                rx={3}
-                stroke="#fff"
+        <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
+          <svg width={width - 140} height={height} style={{ display: 'block' }}>
+            <Group top={margin.top} left={margin.left}>
+              {/* Grid lines */}
+              {xScale.ticks().map((tick, i) => (
+                <line
+                  key={`grid-x-${i}`}
+                  x1={xScale(tick)}
+                  x2={xScale(tick)}
+                  y1={0}
+                  y2={innerHeight}
+                  stroke="var(--border)"
+                  strokeDasharray="3,3"
+                  strokeWidth={1}
+                  opacity={0.6}
+                />
+              ))}
+              
+              {/* Bars */}
+              {parsedData.map((d, i) => {
+                const barY = yScale(d.y);
+                const barHeight = yScale.bandwidth();
+                
+                if (barY === undefined || barHeight === undefined || !d.startDate || !d.endDate) {
+                  return null;
+                }
+                
+                const startX = xScale(d.startDate);
+                const endX = xScale(d.endDate);
+                
+                if (startX === undefined || endX === undefined) {
+                  return null;
+                }
+                
+                const barWidth = Math.max(2, endX - startX); // Minimum width of 2px
+                
+                return (
+                  <VisxBar
+                    key={`gantt-bar-${i}`}
+                    x={startX}
+                    y={barY}
+                    width={barWidth}
+                    height={barHeight}
+                    fill={colorScale(d.series)}
+                    rx={3}
+                    stroke="#fff"
+                    strokeWidth={1}
+                    style={{ cursor: 'pointer' }}
+                    onMouseEnter={(event) => {
+                      const rect = event.currentTarget.getBoundingClientRect();
+                      showTooltip({
+                        tooltipData: d,
+                        tooltipLeft: rect.left + rect.width / 2,
+                        tooltipTop: rect.top - 10,
+                      });
+                    }}
+                    onMouseLeave={() => hideTooltip()}
+                  />
+                );
+              })}
+
+              {/* Custom X-axis with rotated labels */}
+              <line
+                x1={0}
+                x2={innerWidth}
+                y1={innerHeight}
+                y2={innerHeight}
+                stroke="var(--border)"
                 strokeWidth={1}
-                style={{ cursor: 'pointer' }}
-                onMouseEnter={(event) => {
-                  showTooltip({
-                    tooltipData: d,
-                    tooltipLeft: startX + barWidth / 2,
-                    tooltipTop: barY + barHeight / 2,
-                  });
-                }}
-                onMouseLeave={() => hideTooltip()}
               />
-            );
-          })}
-
-          {/* Axes */}
-          <AxisBottom
-            top={innerHeight}
-            scale={xScale}
-            numTicks={8}
-            tickFormat={timeFormat("%b %d")}
-            stroke="var(--border)"
-            strokeWidth={1}
-            tickStroke="var(--border)"
-            tickLength={6}
-            tickLabelProps={() => ({
-              fill: 'var(--foreground)',
-              fontSize: 11,
-              textAnchor: 'middle',
-              dy: '0.33em',
-              fontWeight: 500
-            })}
-          />
-          <AxisLeft 
-            scale={yScale} 
-            stroke="var(--border)"
-            strokeWidth={1}
-            tickStroke="var(--border)"
-            tickLength={6}
-            tickValues={tasks} // Explicitly set tick values to all tasks
-            tickLabelProps={() => ({
-              fill: 'var(--foreground)',
-              fontSize: 8,
-              textAnchor: 'end',
-              dx: -12,
-              dy: '0.32em',
-              fontWeight: 500
-            })}
-            tickFormat={(value) => {
-              // Truncate long labels and add ellipsis
-              return value.length > 32 ? value.substring(0, 32) + '...' : value;
-            }}
-          />
-        </Group>
-
-        {/* Axis Labels */}
-        <text
-          x={width / 2}
-          y={height - 10}
-          textAnchor="middle"
-          fill="var(--muted-foreground)"
-          fontSize={12}
-          fontWeight={600}
-        >
-          Timeline
-        </text>
-        <text
-          x={15}
-          y={height / 2}
-          textAnchor="middle"
-          fill="var(--muted-foreground)"
-          fontSize={12}
-          fontWeight={600}
-          transform={`rotate(-90, 15, ${height / 2})`}
-        >
-          {config.y || 'Tasks'}
-        </text>
-
-        {/* Legend */}
-        <Group top={margin.top} left={width - margin.right + 20}>
-          <text
-            x={0}
-            y={0}
-            fill="var(--muted-foreground)"
-            fontSize={12}
-            fontWeight={600}
-            textAnchor="start"
-          >
-            {config.series || 'Series'}
-          </text>
-          {seriesNames.map((seriesName, i) => (
-            <Group key={seriesName} top={20 + i * 20}>
-              <rect
-                x={0}
-                y={-8}
-                width={12}
-                height={12}
-                fill={colorScale(seriesName)}
-                rx={2}
+              {xScale.ticks(6).map((tick, i) => {
+                const x = xScale(tick);
+                const label = timeFormat("%b %Y")(tick);
+                return (
+                  <g key={`x-tick-${i}`}>
+                    <line
+                      x1={x}
+                      x2={x}
+                      y1={innerHeight}
+                      y2={innerHeight + 6}
+                      stroke="var(--border)"
+                      strokeWidth={1}
+                    />
+                    <text
+                      x={x}
+                      y={innerHeight + 20}
+                      fill="var(--foreground)"
+                      fontSize={9}
+                      textAnchor="start"
+                      fontWeight={500}
+                      transform={`rotate(-45, ${x}, ${innerHeight + 20})`}
+                    >
+                      {label}
+                    </text>
+                  </g>
+                );
+              })}
+              
+              {/* Custom Y-axis with better label distribution */}
+              <line
+                x1={0}
+                x2={0}
+                y1={0}
+                y2={innerHeight}
+                stroke="var(--border)"
+                strokeWidth={1}
               />
-              <text
-                x={18}
-                y={0}
-                fill="var(--foreground)"
-                fontSize={11}
-                textAnchor="start"
-                dominantBaseline="middle"
-                fontWeight={500}
-              >
-                {seriesName}
-              </text>
+              {/* Show ALL task labels - full length */}
+              {tasks.map((task, i) => {
+                const y = yScale(task);
+                if (y === undefined) return null;
+                
+                return (
+                  <g key={`y-tick-${i}`}>
+                    <line
+                      x1={-6}
+                      x2={0}
+                      y1={y + yScale.bandwidth() / 2}
+                      y2={y + yScale.bandwidth() / 2}
+                      stroke="var(--border)"
+                      strokeWidth={1}
+                    />
+                    <text
+                      x={-10}
+                      y={y + yScale.bandwidth() / 2}
+                      fill="var(--foreground)"
+                      fontSize={6}
+                      textAnchor="end"
+                      dominantBaseline="middle"
+                      fontWeight={500}
+                    >
+                      {task}
+                    </text>
+                  </g>
+                );
+              })}
             </Group>
-          ))}
-        </Group>
-      </svg>
+
+            {/* Axis Labels */}
+            <text
+              x={(width - 140) / 2}
+              y={height - 10}
+              textAnchor="middle"
+              fill="var(--muted-foreground)"
+              fontSize={12}
+              fontWeight={600}
+            >
+              {config.x || 'Timeline'}
+            </text>
+            <text
+              x={15}
+              y={height / 2}
+              textAnchor="middle"
+              fill="var(--muted-foreground)"
+              fontSize={12}
+              fontWeight={600}
+              transform={`rotate(-90, 15, ${height / 2})`}
+            >
+              {config.y || 'Tasks'}
+            </text>
+          </svg>
+        </div>
       )}
+
+      {/* Scrollable Legend Panel */}
+      <div style={{ 
+        width: '140px', 
+        borderLeft: '1px solid var(--border)', 
+        padding: '16px 12px',
+        backgroundColor: 'var(--background)',
+        overflowY: 'auto',
+        maxHeight: '100%'
+      }}>
+        <div style={{
+          fontSize: '12px',
+          fontWeight: 600,
+          color: 'var(--muted-foreground)',
+          marginBottom: '12px'
+        }}>
+          {config.series || 'Series'}
+        </div>
+        {seriesNames.map((seriesName, i) => (
+          <div key={seriesName} style={{
+            display: 'flex',
+            alignItems: 'center',
+            marginBottom: '8px',
+            fontSize: '11px',
+            fontWeight: 500
+          }}>
+            <div style={{
+              width: '12px',
+              height: '12px',
+              backgroundColor: colorScale(seriesName),
+              borderRadius: '2px',
+              marginRight: '8px',
+              flexShrink: 0
+            }} />
+            <span style={{
+              color: 'var(--foreground)',
+              wordBreak: 'break-word',
+              lineHeight: '1.2'
+            }}>
+              {seriesName}
+            </span>
+          </div>
+        ))}
+      </div>
       
       {/* Tooltip */}
       {tooltipOpen && tooltipData && (

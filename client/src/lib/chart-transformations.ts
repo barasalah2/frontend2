@@ -48,10 +48,9 @@ export const transformData = (data: any[], config: ChartConfig): any => {
         result.x2 = originalData[index][config.x2];
       }
       
-      // Apply x2 transformation if needed
-      if (config.x2 && config.transform_x && result.x2) {
-        result.x2 = transformSingleValue(result.x2, config.x2, config.transform_x);
-      }
+      // DON'T apply x2 transformation for Gantt charts - preserve original finish dates
+      // x2 field should remain as original dates for proper timeline visualization
+      // Only transform x field for grouping/filtering purposes
       
       return result;
     }),
@@ -588,7 +587,10 @@ const applyUnifiedAggregation = (
 
   // Process each group with aggregation
   const result = Object.values(grouped).map((group: any) => {
+    // Start with the first item to preserve all original fields (including x2)
+    const firstItem = group.items[0] || {};
     const groupResult: any = {
+      ...firstItem, // Preserve all original fields including x2
       [groupField]: group[groupField],
       ...(seriesField && { [seriesField]: group[seriesField] }),
       count: group.items.length,
