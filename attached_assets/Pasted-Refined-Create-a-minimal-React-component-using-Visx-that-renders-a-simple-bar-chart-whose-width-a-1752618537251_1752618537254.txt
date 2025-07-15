@@ -1,0 +1,100 @@
+Refined: **Create a minimal React component using Visx that renders a simple bar chart whose width automatically expands or shrinks with the browser window. Ensure the chart re‑measures on resize (no page refresh required) and keeps a fixed aspect ratio for height.**
+
+Perspective: **Practical front‑end engineer focused on delivering concise, production‑ready sample code new developers can paste into a React project and run immediately.**
+
+Execution:
+
+```tsx
+// ResponsiveBarChart.tsx
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { scaleBand, scaleLinear } from "@visx/scale";
+import { Bar } from "@visx/shape";
+import { Group } from "@visx/group";
+
+// --- dummy data ------------------------------------------------------------
+const data = [
+  { label: "A", value: 25 },
+  { label: "B", value: 40 },
+  { label: "C", value: 55 },
+  { label: "D", value: 15 },
+];
+
+// --- chart component -------------------------------------------------------
+export default function ResponsiveBarChart() {
+  // container reference & live width -------------------------------
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState<number>(0);
+
+  // keep a 3 : 2 aspect ratio for height
+  const height = Math.max(150, (width * 2) / 3);
+
+  // resize observer callback ---------------------------------------
+  const measure = useCallback(() => {
+    if (containerRef.current) {
+      setWidth(containerRef.current.getBoundingClientRect().width);
+    }
+  }, []);
+
+  useEffect(() => {
+    // initial measurement
+    measure();
+
+    // re‑measure on window resize
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [measure]);
+
+  if (width === 0) return <div ref={containerRef} style={{ width: "100%" }} />;
+
+  // scales ---------------------------------------------------------
+  const xScale = scaleBand<string>({
+    domain: data.map((d) => d.label),
+    range: [0, width],
+    padding: 0.2,
+  });
+
+  const yMax = Math.max(...data.map((d) => d.value));
+  const yScale = scaleLinear<number>({
+    domain: [0, yMax],
+    range: [height, 0],
+  });
+
+  // render ---------------------------------------------------------
+  return (
+    <div ref={containerRef} style={{ width: "100%" }}>
+      <svg width={width} height={height}>
+        <Group>
+          {data.map((d) => {
+            const barWidth = xScale.bandwidth();
+            const barHeight = height - yScale(d.value);
+            const barX = xScale(d.label) ?? 0;
+            const barY = height - barHeight;
+            return (
+              <Bar
+                key={d.label}
+                x={barX}
+                y={barY}
+                width={barWidth}
+                height={barHeight}
+                fill="steelblue"
+              />
+            );
+          })}
+        </Group>
+      </svg>
+    </div>
+  );
+}
+```
+
+**How to use**
+
+1. `npm install @visx/scale @visx/shape @visx/group`
+2. Drop `ResponsiveBarChart.tsx` into your project and import it in any page/component:
+
+   ```tsx
+   import ResponsiveBarChart from "./ResponsiveBarChart";
+   ...
+   <ResponsiveBarChart />
+   ```
+3. The chart fills its parent’s width and re‑sizes smoothly on window resize, maintaining a 3:2 height ratio.

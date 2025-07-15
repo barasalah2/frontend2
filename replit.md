@@ -119,6 +119,39 @@ The application is designed to be deployment-ready for platforms like Replit, wi
 
 ## Recent Changes (July 15, 2025)
 
+### Individual Chart Fullscreen Implementation Complete (July 15, 2025)
+- **Removed Table-Level Fullscreen**: Eliminated the combined table and charts fullscreen button that was confusing users
+  - Removed fullscreen button from table controls that showed both table and charts together
+  - Simplified table interface to focus on data display and filtering functionality
+  - Removed complex fullscreen state management from table component
+- **Individual Chart Fullscreen Icons**: Added small fullscreen icons to each chart for individual fullscreen viewing
+  - Each chart now has a small maximize icon (Maximize2) in the top-right corner of the chart header
+  - Clicking the icon opens that specific chart in a fullscreen modal dialog
+  - Fullscreen charts display at 70vh height with proper scaling and scrolling
+  - Added minimize button in fullscreen modal for easy exit
+- **Enhanced User Experience**: Charts can now be viewed individually in fullscreen mode
+  - Users can focus on one chart at a time without distractions
+  - Better chart readability with larger display area
+  - Proper responsive sizing for different screen sizes
+  - Maintains all chart functionality (tooltips, interactions) in fullscreen mode
+
+### Responsive Chart Width Implementation Complete (July 15, 2025)
+- **Proper Responsive Behavior**: Implemented robust responsive width functionality for all chart types
+  - Used `useRef` and `getBoundingClientRect()` to get actual container dimensions
+  - Added `useCallback` with resize event listeners for efficient updates
+  - Charts now automatically adjust width based on browser window changes
+  - No page refresh required - charts respond to window resize in real-time
+- **Enhanced visx-Based Charts**: Fixed responsive behavior for Gantt, Dumbbell, and Horizontal Bar charts
+  - All visx-based charts now properly scale with window width
+  - Maintained minimum width (400px) and maximum width (1200px) constraints
+  - Added proper container wrapping with div elements that fill 100% width
+  - Improved performance with efficient dimension calculation and updates
+- **Consistent Responsiveness**: All chart types now have unified responsive behavior
+  - Recharts-based charts use ResponsiveContainer for automatic scaling
+  - visx-based charts use custom responsive wrapper components
+  - Both regular and fullscreen chart modes are fully responsive
+  - Enhanced user experience with seamless chart scaling across all devices
+
 ### Group Limiting Removed for Large Datasets (July 15, 2025)
 - **Removed Top 30 Limitations**: Eliminated all artificial group limiting from chart transformations
   - Removed "Simultaneous grouping combinations exceed 30" automatic limiting

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import {
   BarChart,
   Bar,
@@ -28,7 +28,9 @@ import { useTooltip, TooltipWithBounds, defaultStyles } from "@visx/tooltip";
 import { timeParse, timeFormat } from "d3-time-format";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, Info } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertCircle, Info, Maximize2, Minimize2 } from 'lucide-react';
 import { transformData, processHistogramData } from '@/lib/chart-transformations';
 
 export interface ChartConfig {
@@ -99,34 +101,38 @@ const ResponsiveGanttChart: React.FC<Omit<GanttProps, 'width' | 'height'>> = ({ 
   };
   
   const itemHeight = getItemHeight(data.length);
-  const [dimensions, setDimensions] = React.useState({ width: 800, height: Math.max(400, data.length * itemHeight + 200) });
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState<number>(0);
+  const height = Math.max(400, data.length * itemHeight + 200);
 
-  React.useEffect(() => {
-    const updateDimensions = () => {
-      const container = document.querySelector('.chart-container');
-      if (container) {
-        const rect = container.getBoundingClientRect();
-        const calculatedHeight = Math.max(400, data.length * itemHeight + 200); // Dynamic sizing based on dataset
-        setDimensions({
-          width: Math.max(800, rect.width - 40), // Minimum 800px to accommodate margins
-          height: calculatedHeight
-        });
-      } else {
-        // Fallback to window width - calculate height based on data length
-        const calculatedHeight = Math.max(400, data.length * itemHeight + 200); // Dynamic sizing based on dataset
-        setDimensions({
-          width: Math.max(1000, window.innerWidth - 200), // Account for sidebar/margins - wider for better layout
-          height: calculatedHeight
-        });
-      }
-    };
-
-    updateDimensions();
-    window.addEventListener('resize', updateDimensions);
-    return () => window.removeEventListener('resize', updateDimensions);
+  // Resize observer callback
+  const measure = useCallback(() => {
+    if (containerRef.current) {
+      const containerWidth = containerRef.current.getBoundingClientRect().width;
+      // Calculate responsive width with min/max constraints
+      const calculatedWidth = Math.min(containerWidth - 40, 1200); // Max width 1200px, padding 40px
+      setWidth(Math.max(400, calculatedWidth)); // Minimum 400px width
+    }
   }, []);
 
-  return <GanttChart data={data} config={config} width={dimensions.width} height={dimensions.height} />;
+  useEffect(() => {
+    // Initial measurement
+    measure();
+    
+    // Re-measure on window resize
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [measure]);
+
+  if (width === 0) {
+    return <div ref={containerRef} style={{ width: '100%', height: `${height}px` }} />;
+  }
+
+  return (
+    <div ref={containerRef} style={{ width: '100%' }}>
+      <GanttChart data={data} config={config} width={width} height={height} />
+    </div>
+  );
 };
 
 const GanttChart: React.FC<GanttProps> = ({ data, config, width = 800, height = 500 }) => {
@@ -513,7 +519,7 @@ const GanttChart: React.FC<GanttProps> = ({ data, config, width = 800, height = 
                         x={-10}
                         y={y + yScale.bandwidth() / 2}
                         fill="var(--foreground)"
-                        fontSize={6}
+                        fontSize={10}
                         textAnchor="end"
                         dominantBaseline="middle"
                         fontWeight={500}
@@ -668,7 +674,7 @@ const GanttChart: React.FC<GanttProps> = ({ data, config, width = 800, height = 
                       x={-10}
                       y={y + yScale.bandwidth() / 2}
                       fill="var(--foreground)"
-                      fontSize={6}
+                      fontSize={10}
                       textAnchor="end"
                       dominantBaseline="middle"
                       fontWeight={500}
@@ -772,34 +778,41 @@ const GanttChart: React.FC<GanttProps> = ({ data, config, width = 800, height = 
 };
 
 const ResponsiveDumbbellChart: React.FC<Omit<DumbbellProps, 'width' | 'height'>> = ({ data, config }) => {
-  const [dimensions, setDimensions] = React.useState({ width: 900, height: 500 });
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState<number>(0);
+  const height = 500;
 
-  React.useEffect(() => {
-    const updateDimensions = () => {
-      const container = document.querySelector('.chart-container');
-      if (container) {
-        const rect = container.getBoundingClientRect();
-        setDimensions({
-          width: Math.max(700, rect.width - 40), 
-          height: 500
-        });
-      } else {
-        setDimensions({
-          width: Math.max(700, window.innerWidth - 200),
-          height: 500
-        });
-      }
-    };
-
-    updateDimensions();
-    window.addEventListener('resize', updateDimensions);
-    return () => window.removeEventListener('resize', updateDimensions);
+  // Resize observer callback
+  const measure = useCallback(() => {
+    if (containerRef.current) {
+      const containerWidth = containerRef.current.getBoundingClientRect().width;
+      // Calculate responsive width with min/max constraints
+      const calculatedWidth = Math.min(containerWidth - 40, 1200); // Max width 1200px, padding 40px
+      setWidth(Math.max(400, calculatedWidth)); // Minimum 400px width
+    }
   }, []);
 
-  return <DumbbellChart data={data} config={config} width={dimensions.width} height={dimensions.height} />;
+  useEffect(() => {
+    // Initial measurement
+    measure();
+    
+    // Re-measure on window resize
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [measure]);
+
+  if (width === 0) {
+    return <div ref={containerRef} style={{ width: '100%', height: `${height}px` }} />;
+  }
+
+  return (
+    <div ref={containerRef} style={{ width: '100%' }}>
+      <DumbbellChart data={data} config={config} width={width} height={height} />
+    </div>
+  );
 };
 
-const DumbbellChart: React.FC<DumbbellProps> = ({ data, config, width = 900, height = 500 }) => {
+const DumbbellChart: React.FC<DumbbellProps> = ({ data, config, width = 800, height = 500 }) => {
   // Handle empty data
   if (!data || data.length === 0) {
     return (
@@ -809,58 +822,145 @@ const DumbbellChart: React.FC<DumbbellProps> = ({ data, config, width = 900, hei
     );
   }
 
-  // Parse dates - try different formats
-  const parseDate = timeParse("%Y-%m-%d");
-  const formatDate = timeFormat("%Y-%m-%d");
+  // Parse dates with error handling and fallback for missing dates (same as Gantt)
+  let nullCount = 0;
+  let invalidDateCount = 0;
   
-  const rows = data.map(d => {
-    let parsedX = parseDate(d.x);
-    let parsedX2 = parseDate(d.x2);
+  const parsedData = data.map((d, index) => {
+    // Handle empty or invalid date strings
+    let startDate = null;
+    let endDate = null;
     
-    // Fallback to direct Date parsing if format doesn't match
-    if (!parsedX) parsedX = new Date(d.x);
-    if (!parsedX2) parsedX2 = new Date(d.x2);
+    if (d.x && d.x.trim() !== '') {
+      // Parse the date ensuring we use the exact date provided
+      const parts = d.x.split('-');
+      if (parts.length === 3) {
+        // Create date using local time (not UTC) to preserve exact date
+        startDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        if (isNaN(startDate.getTime())) startDate = null;
+      } else {
+        // Fallback to d3 parsing
+        startDate = parseDate(d.x);
+        if (!startDate) {
+          startDate = new Date(d.x);
+          if (isNaN(startDate.getTime())) startDate = null;
+        }
+      }
+    }
+    
+    if (d.x2 && d.x2.trim() !== '') {
+      // Parse the date ensuring we use the exact date provided
+      const parts = d.x2.split('-');
+      if (parts.length === 3) {
+        // Create date using local time (not UTC) to preserve exact date
+        endDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        if (isNaN(endDate.getTime())) endDate = null;
+      } else {
+        // Fallback to d3 parsing
+        endDate = parseDate(d.x2);
+        if (!endDate) {
+          endDate = new Date(d.x2 + 'T00:00:00');
+          if (isNaN(endDate.getTime())) endDate = null;
+        }
+      }
+    }
+    
+    // If both dates are missing, skip this item
+    if (!startDate && !endDate) {
+      nullCount++;
+      return null;
+    }
+    
+    // Handle missing dates - use the actual date provided, don't create synthetic dates
+    if (!startDate && endDate) {
+      // If no start date, use the same date as end date to show as a milestone/point
+      startDate = new Date(endDate.getTime());
+    }
+    
+    if (!endDate && startDate) {
+      // If no end date, use the same date as start date to show as a milestone/point
+      endDate = new Date(startDate.getTime());
+    }
+    
+    // Handle cases where start date is after end date (data error)
+    if (startDate && endDate && startDate > endDate) {
+      // Swap the dates to make logical sense
+      const temp = startDate;
+      startDate = endDate;
+      endDate = temp;
+    }
     
     return {
       ...d,
-      x: parsedX,
-      x2: parsedX2,
+      startDate: startDate,
+      endDate: endDate,
     };
-  }).filter(d => d.x && d.x2 && !isNaN(d.x.getTime()) && !isNaN(d.x2.getTime()));
+  }).filter(d => {
+    const isValid = d !== null && d.startDate && d.endDate && !isNaN(d.startDate.getTime()) && !isNaN(d.endDate.getTime());
+    if (!isValid) {
+      invalidDateCount++;
+    }
+    return isValid;
+  });
 
-  if (rows.length === 0) {
+  // Handle case where all dates failed to parse
+  if (parsedData.length === 0) {
     return (
       <div style={{ width, height, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <p style={{ color: '#666', fontSize: '14px' }}>Invalid date format in Dumbbell chart data</p>
+        <p style={{ color: '#666', fontSize: '14px' }}>Invalid date format in data</p>
       </div>
     );
   }
 
-  const margin = { top: 40, right: 40, bottom: 50, left: 120 };
-  const innerW = width - margin.left - margin.right;
-  const innerH = height - margin.top - margin.bottom;
+  const margin = { top: 40, left: 300, right: 210, bottom: 60 };
+  const innerWidth = width - margin.left - margin.right;
+  const innerHeight = height - margin.top - margin.bottom;
 
-  // Y scale (tasks)
-  const tasks = [...new Set(rows.map(d => d.y))];
+  // Unique Y values (tasks) - sorted for better display
+  const tasks = [...new Set(parsedData.map(d => d.y))].sort();
+  
+  // Dynamic padding based on dataset size
+  const getPadding = (dataLength: number) => {
+    if (dataLength <= 20) return 0.3;
+    if (dataLength <= 50) return 0.15;
+    if (dataLength <= 100) return 0.1;
+    return 0.05; // Very large datasets
+  };
+
   const yScale = scaleBand<string>({
     domain: tasks,
-    range: [0, innerH],
-    padding: 0.5,
+    range: [0, innerHeight],
+    padding: getPadding(data.length),
   });
 
-  // X scale (dates)
-  const minDate = new Date(Math.min(...rows.map(r => r.x.getTime())));
-  const maxDate = new Date(Math.max(...rows.map(r => r.x2.getTime())));
+  // Get valid dates for x-axis extent
+  const validStartDates = parsedData.filter(d => d.startDate).map(d => d.startDate.getTime());
+  const validEndDates = parsedData.filter(d => d.endDate).map(d => d.endDate.getTime());
+  const allValidDates = [...validStartDates, ...validEndDates];
+  
+  if (allValidDates.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <p className="text-gray-500">No valid dates found for Dumbbell chart</p>
+        </div>
+      </div>
+    );
+  }
+
+  const xExtent: [Date, Date] = [
+    new Date(Math.min(...allValidDates)),
+    new Date(Math.max(...allValidDates)),
+  ];
   const xScale = scaleTime({
-    domain: [minDate, maxDate],
-    range: [0, innerW],
+    domain: xExtent,
+    range: [0, innerWidth],
   });
 
-  // Color scale (series)
-  const seriesSet = [...new Set(rows.map(r => r.series))];
-  const color = scaleOrdinal<string, string>({
-    domain: seriesSet,
-    range: ["#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14f", "#edc948"],
+  const seriesNames = [...new Set(parsedData.map(d => d.series))];
+  const colorScale = scaleOrdinal<string, string>({
+    domain: seriesNames,
+    range: COLORS,
   });
 
   const {
@@ -870,7 +970,7 @@ const DumbbellChart: React.FC<DumbbellProps> = ({ data, config, width = 900, hei
     tooltipOpen,
     showTooltip,
     hideTooltip,
-  } = useTooltip<DumbbellDatum>();
+  } = useTooltip<any>();
 
   const tooltipStyles = {
     ...defaultStyles,
@@ -882,153 +982,509 @@ const DumbbellChart: React.FC<DumbbellProps> = ({ data, config, width = 900, hei
     fontSize: '12px',
   };
 
+  // Check if scrolling is needed
+  const needsScroll = height > 600; // If chart height exceeds 600px, we need scroll
+  
   return (
     <div style={{ display: 'flex', width: '100%', height: '100%' }}>
-      <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
-        <svg width={width} height={height}>
-          <Group left={margin.left} top={margin.top}>
-          {/* Dumbbells */}
-          {rows.map((d, i) => {
-            const y = yScale(d.y)! + yScale.bandwidth() / 2;
-            const x1 = xScale(d.x);
-            const x2 = xScale(d.x2);
-            const col = color(d.series);
-
-            return (
-              <Group key={i}>
-                {/* connecting line */}
-                <VisxLine
-                  from={{ x: x1, y }}
-                  to={{ x: x2, y }}
-                  stroke={col}
-                  strokeWidth={2}
-                  strokeOpacity={0.7}
+      {needsScroll ? (
+        // Scrollable layout with sticky x-axis
+        <div style={{ flex: 1, minWidth: 0, position: 'relative', width: '100%', height: '600px' }}>
+          {/* Sticky X-axis container */}
+          <div style={{ 
+            position: 'sticky', 
+            top: 0, 
+            zIndex: 10, 
+            backgroundColor: 'var(--background)',
+            borderBottom: '1px solid var(--border)',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+          }}>
+            <svg width={width} height={margin.top + 40} style={{ display: 'block' }}>
+              <Group top={margin.top} left={margin.left}>
+                {/* X-axis grid lines */}
+                {xScale.ticks().map((tick, i) => (
+                  <line
+                    key={`sticky-grid-x-${i}`}
+                    x1={xScale(tick)}
+                    x2={xScale(tick)}
+                    y1={0}
+                    y2={30}
+                    stroke="var(--border)"
+                    strokeDasharray="3,3"
+                    strokeWidth={1}
+                    opacity={0.6}
+                  />
+                ))}
+                {/* Custom X-axis with rotated labels */}
+                <line
+                  x1={0}
+                  x2={innerWidth}
+                  y1={20}
+                  y2={20}
+                  stroke="var(--border)"
+                  strokeWidth={1}
                 />
-                {/* planned dot */}
-                <Circle 
-                  cx={x1} 
-                  cy={y} 
-                  r={6} 
-                  fill={col}
-                  style={{ cursor: 'pointer' }}
-                  onMouseEnter={(event) => {
-                    showTooltip({
-                      tooltipData: d,
-                      tooltipLeft: x1,
-                      tooltipTop: y,
-                    });
-                  }}
-                  onMouseLeave={() => hideTooltip()}
-                />
-                {/* actual dot */}
-                <Circle
-                  cx={x2}
-                  cy={y}
-                  r={6}
-                  fill={col}
-                  stroke="#fff"
-                  strokeWidth={1.5}
-                  style={{ cursor: 'pointer' }}
-                  onMouseEnter={(event) => {
-                    showTooltip({
-                      tooltipData: d,
-                      tooltipLeft: x2,
-                      tooltipTop: y,
-                    });
-                  }}
-                  onMouseLeave={() => hideTooltip()}
-                />
+                {xScale.ticks(6).map((tick, i) => {
+                  const x = xScale(tick);
+                  const label = timeFormat("%b %Y")(tick);
+                  return (
+                    <g key={`sticky-x-tick-${i}`}>
+                      <line
+                        x1={x}
+                        x2={x}
+                        y1={20}
+                        y2={26}
+                        stroke="var(--border)"
+                        strokeWidth={1}
+                      />
+                      <text
+                        x={x}
+                        y={40}
+                        fill="var(--foreground)"
+                        fontSize={9}
+                        textAnchor="start"
+                        fontWeight={500}
+                        transform={`rotate(-45, ${x}, 40)`}
+                      >
+                        {label}
+                      </text>
+                    </g>
+                  );
+                })}
+                {/* X-axis Label */}
+                <text
+                  x={innerWidth / 2}
+                  y={55}
+                  fill="var(--muted-foreground)"
+                  fontSize={12}
+                  fontWeight={600}
+                  textAnchor="middle"
+                >
+                  Timeline
+                </text>
               </Group>
-            );
-          })}
+            </svg>
+          </div>
+          
+          {/* Scrollable content area */}
+          <div style={{ 
+            height: '540px', 
+            overflowY: 'auto',
+            overflowX: 'hidden'
+          }}>
+            <svg width={width} height={height - margin.top - 40} style={{ display: 'block' }}>
+              <Group top={0} left={margin.left}>
+                {/* Grid lines */}
+                {xScale.ticks().map((tick, i) => (
+                  <line
+                    key={`grid-x-${i}`}
+                    x1={xScale(tick)}
+                    x2={xScale(tick)}
+                    y1={0}
+                    y2={innerHeight}
+                    stroke="#e0e0e0"
+                    strokeDasharray="3,3"
+                    strokeWidth={1}
+                    opacity={0.6}
+                  />
+                ))}
+                
+                {/* Dumbbells */}
+                {parsedData.map((d, i) => {
+                  const barY = yScale(d.y);
+                  const barHeight = yScale.bandwidth();
+                  
+                  if (barY === undefined || barHeight === undefined || !d.startDate || !d.endDate) {
+                    return null;
+                  }
+                  
+                  const startX = xScale(d.startDate);
+                  const endX = xScale(d.endDate);
+                  
+                  if (startX === undefined || endX === undefined) {
+                    return null;
+                  }
+                  
+                  const centerY = barY + barHeight / 2;
+                  const color = colorScale(d.series);
+                  
+                  return (
+                    <Group key={`dumbbell-${i}`}>
+                      {/* Connecting line */}
+                      <VisxLine
+                        from={{ x: startX, y: centerY }}
+                        to={{ x: endX, y: centerY }}
+                        stroke={color}
+                        strokeWidth={2}
+                        strokeOpacity={0.7}
+                      />
+                      {/* Start dot (planned) */}
+                      <Circle
+                        cx={startX}
+                        cy={centerY}
+                        r={6}
+                        fill={color}
+                        style={{ cursor: 'pointer' }}
+                        onMouseEnter={(event) => {
+                          showTooltip({
+                            tooltipData: d,
+                            tooltipLeft: event.clientX,
+                            tooltipTop: event.clientY - 20,
+                          });
+                        }}
+                        onMouseMove={(event) => {
+                          showTooltip({
+                            tooltipData: d,
+                            tooltipLeft: event.clientX,
+                            tooltipTop: event.clientY - 20,
+                          });
+                        }}
+                        onMouseLeave={() => hideTooltip()}
+                      />
+                      {/* End dot (actual) */}
+                      <Circle
+                        cx={endX}
+                        cy={centerY}
+                        r={6}
+                        fill={color}
+                        stroke="#fff"
+                        strokeWidth={1.5}
+                        style={{ cursor: 'pointer' }}
+                        onMouseEnter={(event) => {
+                          showTooltip({
+                            tooltipData: d,
+                            tooltipLeft: event.clientX,
+                            tooltipTop: event.clientY - 20,
+                          });
+                        }}
+                        onMouseMove={(event) => {
+                          showTooltip({
+                            tooltipData: d,
+                            tooltipLeft: event.clientX,
+                            tooltipTop: event.clientY - 20,
+                          });
+                        }}
+                        onMouseLeave={() => hideTooltip()}
+                      />
+                    </Group>
+                  );
+                })}
 
-          {/* Axes */}
-          <AxisBottom
-            top={innerH}
-            scale={xScale}
-            tickFormat={formatDate}
-            stroke="#666"
-            tickStroke="#666"
-            tickLabelProps={() => ({
-              fill: '#666',
-              fontSize: 11,
-              textAnchor: 'middle',
-              dy: "0.25em"
-            })}
-          />
-          <AxisLeft
-            scale={yScale}
-            stroke="#666"
-            tickStroke="#666"
-            tickLabelProps={() => ({
-              fill: '#666',
-              fontSize: 11,
-              textAnchor: 'end',
-              dx: "-0.25em"
-            })}
-          />
+                {/* Custom Y-axis with better distribution */}
+                <line
+                  x1={0}
+                  x2={0}
+                  y1={60}
+                  y2={height - 60}
+                  stroke="var(--border)"
+                  strokeWidth={1}
+                />
+                {/* Show ALL task labels - full length in scrollable view */}
+                {tasks.map((task, i) => {
+                  const y = yScale(task);
+                  if (y === undefined) return null;
+                  
+                  return (
+                    <g key={`sticky-y-tick-${i}`}>
+                      <line
+                        x1={-6}
+                        x2={0}
+                        y1={y + yScale.bandwidth() / 2}
+                        y2={y + yScale.bandwidth() / 2}
+                        stroke="var(--border)"
+                        strokeWidth={1}
+                      />
+                      <text
+                        x={-10}
+                        y={y + yScale.bandwidth() / 2}
+                        fill="var(--foreground)"
+                        fontSize={10}
+                        textAnchor="end"
+                        dominantBaseline="middle"
+                        fontWeight={500}
+                      >
+                        {task}
+                      </text>
+                    </g>
+                  );
+                })}
+                
+                {/* Y-axis Label */}
+                <text
+                  x={-margin.left + 20}
+                  y={innerHeight / 2}
+                  fill="var(--muted-foreground)"
+                  fontSize={12}
+                  fontWeight={600}
+                  textAnchor="middle"
+                  transform={`rotate(-90, ${-margin.left + 20}, ${innerHeight / 2})`}
+                >
+                  {config.y || 'Tasks'}
+                </text>
+              </Group>
+            </svg>
+          </div>
+        </div>
+      ) : (
+        // Normal layout for smaller charts
+        <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
+          <svg width={width - 140} height={height} style={{ display: 'block' }}>
+            <Group top={margin.top} left={margin.left}>
+              {/* Grid lines */}
+              {xScale.ticks().map((tick, i) => (
+                <line
+                  key={`grid-x-${i}`}
+                  x1={xScale(tick)}
+                  x2={xScale(tick)}
+                  y1={0}
+                  y2={innerHeight}
+                  stroke="var(--border)"
+                  strokeDasharray="3,3"
+                  strokeWidth={1}
+                  opacity={0.6}
+                />
+              ))}
+              
+              {/* Dumbbells */}
+              {parsedData.map((d, i) => {
+                const barY = yScale(d.y);
+                const barHeight = yScale.bandwidth();
+                
+                if (barY === undefined || barHeight === undefined || !d.startDate || !d.endDate) {
+                  return null;
+                }
+                
+                const startX = xScale(d.startDate);
+                const endX = xScale(d.endDate);
+                
+                if (startX === undefined || endX === undefined) {
+                  return null;
+                }
+                
+                const centerY = barY + barHeight / 2;
+                const color = colorScale(d.series);
+                
+                return (
+                  <Group key={`dumbbell-${i}`}>
+                    {/* Connecting line */}
+                    <VisxLine
+                      from={{ x: startX, y: centerY }}
+                      to={{ x: endX, y: centerY }}
+                      stroke={color}
+                      strokeWidth={2}
+                      strokeOpacity={0.7}
+                    />
+                    {/* Start dot (planned) */}
+                    <Circle
+                      cx={startX}
+                      cy={centerY}
+                      r={6}
+                      fill={color}
+                      style={{ cursor: 'pointer' }}
+                      onMouseEnter={(event) => {
+                        const rect = event.currentTarget.getBoundingClientRect();
+                        showTooltip({
+                          tooltipData: d,
+                          tooltipLeft: rect.left + rect.width / 2,
+                          tooltipTop: rect.top - 10,
+                        });
+                      }}
+                      onMouseLeave={() => hideTooltip()}
+                    />
+                    {/* End dot (actual) */}
+                    <Circle
+                      cx={endX}
+                      cy={centerY}
+                      r={6}
+                      fill={color}
+                      stroke="#fff"
+                      strokeWidth={1.5}
+                      style={{ cursor: 'pointer' }}
+                      onMouseEnter={(event) => {
+                        const rect = event.currentTarget.getBoundingClientRect();
+                        showTooltip({
+                          tooltipData: d,
+                          tooltipLeft: rect.left + rect.width / 2,
+                          tooltipTop: rect.top - 10,
+                        });
+                      }}
+                      onMouseLeave={() => hideTooltip()}
+                    />
+                  </Group>
+                );
+              })}
 
-          {/* Legend - moved to external scrollable div */}
-        </Group>
-      </svg>
+              {/* Custom X-axis with rotated labels */}
+              <line
+                x1={0}
+                x2={innerWidth}
+                y1={innerHeight}
+                y2={innerHeight}
+                stroke="var(--border)"
+                strokeWidth={1}
+              />
+              {xScale.ticks(6).map((tick, i) => {
+                const x = xScale(tick);
+                const label = timeFormat("%b %Y")(tick);
+                return (
+                  <g key={`x-tick-${i}`}>
+                    <line
+                      x1={x}
+                      x2={x}
+                      y1={innerHeight}
+                      y2={innerHeight + 6}
+                      stroke="var(--border)"
+                      strokeWidth={1}
+                    />
+                    <text
+                      x={x}
+                      y={innerHeight + 20}
+                      fill="var(--foreground)"
+                      fontSize={9}
+                      textAnchor="start"
+                      fontWeight={500}
+                      transform={`rotate(-45, ${x}, ${innerHeight + 20})`}
+                    >
+                      {label}
+                    </text>
+                  </g>
+                );
+              })}
+              
+              {/* Custom Y-axis with better label distribution */}
+              <line
+                x1={0}
+                x2={0}
+                y1={0}
+                y2={innerHeight}
+                stroke="var(--border)"
+                strokeWidth={1}
+              />
+              {/* Show ALL task labels - full length */}
+              {tasks.map((task, i) => {
+                const y = yScale(task);
+                if (y === undefined) return null;
+                
+                return (
+                  <g key={`y-tick-${i}`}>
+                    <line
+                      x1={-6}
+                      x2={0}
+                      y1={y + yScale.bandwidth() / 2}
+                      y2={y + yScale.bandwidth() / 2}
+                      stroke="var(--border)"
+                      strokeWidth={1}
+                    />
+                    <text
+                      x={-10}
+                      y={y + yScale.bandwidth() / 2}
+                      fill="var(--foreground)"
+                      fontSize={10}
+                      textAnchor="end"
+                      dominantBaseline="middle"
+                      fontWeight={500}
+                    >
+                      {task}
+                    </text>
+                  </g>
+                );
+              })}
+            </Group>
 
-        {/* Tooltip */}
-        {tooltipOpen && tooltipData && (
-          <TooltipWithBounds
-            top={tooltipTop + margin.top}
-            left={tooltipLeft + margin.left}
-            style={tooltipStyles}
-          >
-            <div>
-              <div><strong>{tooltipData.y}</strong></div>
-              <div>Series: {tooltipData.series}</div>
-              <div>Planned: {typeof tooltipData.x === 'string' ? tooltipData.x : tooltipData.x.toLocaleDateString()}</div>
-              <div>Actual: {typeof tooltipData.x2 === 'string' ? tooltipData.x2 : tooltipData.x2.toLocaleDateString()}</div>
-              <div>Deviation: {Math.ceil((new Date(tooltipData.x2).getTime() - new Date(tooltipData.x).getTime()) / (1000 * 60 * 60 * 24))} days</div>
-            </div>
-          </TooltipWithBounds>
-        )}
-      </div>
-      
-      {/* Scrollable Legend */}
+            {/* Axis Labels */}
+            <text
+              x={(width - 200) / 2}
+              y={height - 10}
+              textAnchor="middle"
+              fill="var(--muted-foreground)"
+              fontSize={12}
+              fontWeight={600}
+            >
+              {config.x || 'Timeline'}
+            </text>
+            <text
+              x={15}
+              y={height / 2}
+              textAnchor="middle"
+              fill="var(--muted-foreground)"
+              fontSize={12}
+              fontWeight={600}
+              transform={`rotate(-90, 15, ${height / 2})`}
+            >
+              {config.y || 'Tasks'}
+            </text>
+          </svg>
+        </div>
+      )}
+
+      {/* Scrollable Legend Panel */}
       <div style={{ 
         width: '200px', 
-        maxHeight: '100%', 
-        overflowY: 'auto', 
-        paddingLeft: '10px',
-        borderLeft: '1px solid #e5e7eb'
+        borderLeft: '1px solid var(--border)', 
+        padding: '16px 12px',
+        backgroundColor: 'var(--background)',
+        overflowY: 'auto',
+        maxHeight: '100%'
       }}>
-        <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#666', marginBottom: '10px' }}>
-          Series
+        <div style={{
+          fontSize: '12px',
+          fontWeight: 600,
+          color: 'var(--muted-foreground)',
+          marginBottom: '12px'
+        }}>
+          {config.series || 'Series'}
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {seriesSet.map((seriesName, index) => (
-            <div key={seriesName} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{
-                width: '12px',
-                height: '12px',
-                backgroundColor: color(seriesName),
-                borderRadius: '50%',
-                flexShrink: 0
-              }} />
-              <span style={{ 
-                fontSize: '12px', 
-                color: '#666',
-                lineHeight: 1.2,
-                wordBreak: 'break-word'
-              }}>
-                {seriesName}
-              </span>
-            </div>
-          ))}
-        </div>
+        {seriesNames.map((seriesName, i) => (
+          <div key={seriesName} style={{
+            display: 'flex',
+            alignItems: 'center',
+            marginBottom: '8px',
+            fontSize: '11px',
+            fontWeight: 500
+          }}>
+            <div style={{
+              width: '12px',
+              height: '12px',
+              backgroundColor: colorScale(seriesName),
+              borderRadius: '2px',
+              marginRight: '8px',
+              flexShrink: 0
+            }} />
+            <span style={{
+              color: 'var(--foreground)',
+              lineHeight: 1.2,
+              wordBreak: 'break-word'
+            }}>
+              {seriesName}
+            </span>
+          </div>
+        ))}
       </div>
+
+      {/* Tooltip */}
+      {tooltipOpen && tooltipData && (
+        <TooltipWithBounds
+          top={tooltipTop}
+          left={tooltipLeft}
+          style={tooltipStyles}
+        >
+          <div>
+            <div><strong>{tooltipData.y}</strong></div>
+            <div>Series: {tooltipData.series}</div>
+            <div>Planned: {tooltipData.startDate?.toLocaleDateString()}</div>
+            <div>Actual: {tooltipData.endDate?.toLocaleDateString()}</div>
+            <div>Deviation: {Math.ceil((tooltipData.endDate.getTime() - tooltipData.startDate.getTime()) / (1000 * 60 * 60 * 24))} days</div>
+          </div>
+        </TooltipWithBounds>
+      )}
     </div>
   );
 };
 
+
+
 // Pure chart rendering functions (no data transformations)
-const renderBarChart = (data: any[], config: ChartConfig) => {
+const renderBarChart = (data: any[], config: ChartConfig, dimensions?: { width: number, height: number }) => {
   // Check if we have series data for multi-series charts
   const hasSeries = data.length > 0 && data[0].series !== null && data[0].series !== undefined;
   
@@ -1170,7 +1626,7 @@ const renderBarChart = (data: any[], config: ChartConfig) => {
   }
 };
 
-const renderLineChart = (data: any[], config: ChartConfig) => {
+const renderLineChart = (data: any[], config: ChartConfig, dimensions?: { width: number, height: number }) => {
   // Check if we have series data for multi-series charts
   const hasSeries = data.length > 0 && data[0].series !== null && data[0].series !== undefined;
   
@@ -1306,7 +1762,7 @@ const renderLineChart = (data: any[], config: ChartConfig) => {
   }
 };
 
-const renderAreaChart = (data: any[], config: ChartConfig) => {
+const renderAreaChart = (data: any[], config: ChartConfig, dimensions?: { width: number, height: number }) => {
   // Check if we have series data for multi-series charts
   const hasSeries = data.length > 0 && data[0].series !== null && data[0].series !== undefined;
   
@@ -1444,7 +1900,7 @@ const renderAreaChart = (data: any[], config: ChartConfig) => {
   }
 };
 
-const renderPieChart = (data: any[], config: ChartConfig) => {
+const renderPieChart = (data: any[], config: ChartConfig, dimensions?: { width: number, height: number }) => {
   const isDonut = config.type.toLowerCase() === 'donut';
   const innerRadius = isDonut ? 50 : 0; // Hollow center for donut charts
   const outerRadius = 100;
@@ -1487,7 +1943,7 @@ const renderPieChart = (data: any[], config: ChartConfig) => {
   );
 };
 
-const renderScatterChart = (data: any[], config: ChartConfig) => {
+const renderScatterChart = (data: any[], config: ChartConfig, dimensions?: { width: number, height: number }) => {
   // Check if we have series data for multi-series scatter plots
   const hasSeries = data.length > 0 && data[0].series !== null && data[0].series !== undefined;
   
@@ -1612,15 +2068,15 @@ const renderScatterChart = (data: any[], config: ChartConfig) => {
   }
 };
 
-const renderGanttChart = (data: any[], config: ChartConfig) => {
+const renderGanttChart = (data: any[], config: ChartConfig, dimensions?: { width: number, height: number }) => {
   return <ResponsiveGanttChart data={data} config={config} />;
 };
 
-const renderDumbbellChart = (data: any[], config: ChartConfig) => {
+const renderDumbbellChart = (data: any[], config: ChartConfig, dimensions?: { width: number, height: number }) => {
   return <ResponsiveDumbbellChart data={data} config={config} />;
 };
 
-const renderHistogram = (data: any[], config: ChartConfig) => {
+const renderHistogram = (data: any[], config: ChartConfig, dimensions?: { width: number, height: number }) => {
   // For histogram, if data is already processed (has bins), use it directly
   // Otherwise, process raw data using the x field
   let histogramData;
@@ -1697,32 +2153,38 @@ type HorizontalBarDatum = {
 
 // Responsive Horizontal Bar Chart Component
 const ResponsiveHorizontalBarChart: React.FC<{ data: HorizontalBarDatum[], config: ChartConfig }> = ({ data, config }) => {
-  const [dimensions, setDimensions] = React.useState({ width: 800, height: 500 });
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState<number>(0);
+  const height = Math.max(400, Math.min(600, data.length * 40 + 160)); // Dynamic height based on data
 
-  React.useEffect(() => {
-    const updateDimensions = () => {
-      const container = document.querySelector('.chart-container');
-      if (container) {
-        const rect = container.getBoundingClientRect();
-        setDimensions({
-          width: Math.max(600, rect.width - 40), // Minimum 600px, subtract padding
-          height: Math.max(400, Math.min(600, data.length * 40 + 160)) // Dynamic height based on data
-        });
-      } else {
-        // Fallback to window width
-        setDimensions({
-          width: Math.max(600, window.innerWidth - 200), // Account for sidebar/margins
-          height: Math.max(400, Math.min(600, data.length * 40 + 160))
-        });
-      }
-    };
+  // Resize observer callback
+  const measure = useCallback(() => {
+    if (containerRef.current) {
+      const containerWidth = containerRef.current.getBoundingClientRect().width;
+      // Calculate responsive width with min/max constraints
+      const calculatedWidth = Math.min(containerWidth - 40, 1200); // Max width 1200px, padding 40px
+      setWidth(Math.max(400, calculatedWidth)); // Minimum 400px width
+    }
+  }, []);
 
-    updateDimensions();
-    window.addEventListener('resize', updateDimensions);
-    return () => window.removeEventListener('resize', updateDimensions);
-  }, [data.length]);
+  useEffect(() => {
+    // Initial measurement
+    measure();
+    
+    // Re-measure on window resize
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [measure]);
 
-  return <HorizontalBarChart data={data} config={config} width={dimensions.width} height={dimensions.height} />;
+  if (width === 0) {
+    return <div ref={containerRef} style={{ width: '100%', height: `${height}px` }} />;
+  }
+
+  return (
+    <div ref={containerRef} style={{ width: '100%' }}>
+      <HorizontalBarChart data={data} config={config} width={width} height={height} />
+    </div>
+  );
 };
 
 // Horizontal Bar Chart Component (separate component to use hooks properly)
@@ -1963,11 +2425,11 @@ const HorizontalBarChart: React.FC<{ data: HorizontalBarDatum[], config: ChartCo
   );
 };
 
-const renderHorizontalBarChart = (data: HorizontalBarDatum[], config: ChartConfig) => {
+const renderHorizontalBarChart = (data: HorizontalBarDatum[], config: ChartConfig, dimensions?: { width: number, height: number }) => {
   return <ResponsiveHorizontalBarChart data={data} config={config} />;
 };
 
-const renderFallbackChart = (data: any[], config: ChartConfig) => {
+const renderFallbackChart = (data: any[], config: ChartConfig, dimensions?: { width: number, height: number }) => {
   return (
     <div className="flex items-center justify-center h-full">
       <div className="text-center">
@@ -1985,6 +2447,28 @@ const renderFallbackChart = (data: any[], config: ChartConfig) => {
 };
 
 export function ChartRenderer({ data, config, height = 400, width = "100%" }: ChartRendererProps) {
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [chartDimensions, setChartDimensions] = useState({ width: 800, height: height });
+  
+  // Update chart dimensions based on window size
+  useEffect(() => {
+    const updateDimensions = () => {
+      const windowWidth = window.innerWidth;
+      const containerWidth = Math.min(windowWidth - 100, 1200); // Max width 1200px, min padding 100px
+      const calculatedHeight = isFullscreen ? Math.min(window.innerHeight * 0.7, 800) : height;
+      
+      setChartDimensions({
+        width: Math.max(400, containerWidth), // Minimum 400px width
+        height: calculatedHeight
+      });
+    };
+
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, [height, isFullscreen]);
+  
   // Check if data is already transformed (has standardized structure)
   const isAlreadyTransformed = data && data.length > 0 && 
     typeof data[0] === 'object' && 
@@ -2019,29 +2503,29 @@ export function ChartRenderer({ data, config, height = 400, width = "100%" }: Ch
     switch (config.type.toLowerCase()) {
       case 'bar':
       case 'grouped_bar':
-        return renderBarChart(transformedData, config);
+        return renderBarChart(transformedData, config, chartDimensions);
       case 'line':
-        return renderLineChart(transformedData, config);
+        return renderLineChart(transformedData, config, chartDimensions);
       case 'area':
-        return renderAreaChart(transformedData, config);
+        return renderAreaChart(transformedData, config, chartDimensions);
       case 'pie':
       case 'donut':
-        return renderPieChart(transformedData, config);
+        return renderPieChart(transformedData, config, chartDimensions);
       case 'scatter':
       case 'bubble':
-        return renderScatterChart(transformedData, config);
+        return renderScatterChart(transformedData, config, chartDimensions);
       case 'gantt':
-        return renderGanttChart(transformedData, config);
+        return renderGanttChart(transformedData, config, chartDimensions);
       case 'dumbbell':
-        return renderDumbbellChart(transformedData, config);
+        return renderDumbbellChart(transformedData, config, chartDimensions);
       case 'histogram':
-        return renderHistogram(transformedData, config); // Use transformed data
+        return renderHistogram(transformedData, config, chartDimensions); // Use transformed data
       case 'stacked_bar':
-        return renderBarChart(transformedData, config);
+        return renderBarChart(transformedData, config, chartDimensions);
       case 'horizontal_bar':
-        return renderHorizontalBarChart(transformedData, config);
+        return renderHorizontalBarChart(transformedData, config, chartDimensions);
       default:
-        return renderFallbackChart(transformedData, config);
+        return renderFallbackChart(transformedData, config, chartDimensions);
     }
   };
 
@@ -2077,14 +2561,51 @@ export function ChartRenderer({ data, config, height = 400, width = "100%" }: Ch
               )}
             </div>
           </div>
-          <Badge variant="outline" className="shrink-0">{config.type}</Badge>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsFullscreen(true)}
+              className="p-2 h-8 w-8"
+            >
+              <Maximize2 className="h-4 w-4" />
+            </Button>
+            <Badge variant="outline" className="shrink-0">{config.type}</Badge>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
-        <div className="chart-container" style={{ width, height: `${height}px`, minHeight: '400px', overflow: 'auto' }}>
+        <div className="chart-container" style={{ width: '100%', height: `${chartDimensions.height}px`, minHeight: '400px', overflow: 'auto' }}>
           {renderChart()}
         </div>
       </CardContent>
+      
+      {/* Fullscreen Modal */}
+      <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>
+        <DialogContent className="max-w-[95vw] max-h-[95vh] w-full h-full">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <DialogTitle>{config.title}</DialogTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsFullscreen(false)}
+                className="p-2 h-8 w-8"
+              >
+                <Minimize2 className="h-4 w-4" />
+              </Button>
+            </div>
+            {config.rationale && (
+              <p className="text-sm text-gray-600 mt-2">{config.rationale}</p>
+            )}
+          </DialogHeader>
+          <div className="flex-1 overflow-auto">
+            <div className="chart-container" style={{ width: '100%', height: `${chartDimensions.height}px`, minHeight: '500px', overflow: 'auto' }}>
+              {renderChart()}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

@@ -272,15 +272,7 @@ export function EnhancedWorkPackageTable({ data, conversationId }: EnhancedWorkP
               Clear
             </Button>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsFullscreen(!isFullscreen)}
-            className="flex items-center gap-2"
-          >
-            {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-            {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
-          </Button>
+
           
           <Button
             variant="outline"
@@ -398,27 +390,9 @@ export function EnhancedWorkPackageTable({ data, conversationId }: EnhancedWorkP
         {hasActiveFilters && " (filtered)"}
       </div>
 
-      {/* Table Container with Responsive Fullscreen */}
-      <div className={`border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden ${
-        isFullscreen ? 'fixed inset-0 z-50 bg-white dark:bg-gray-900 flex flex-col' : ''
-      }`}>
-        {isFullscreen && (
-          <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
-            <h2 className="text-lg font-semibold">Data Table - Fullscreen View</h2>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsFullscreen(false)}
-              className="flex items-center gap-2"
-            >
-              <Minimize2 className="h-4 w-4" />
-              Exit Fullscreen
-            </Button>
-          </div>
-        )}
-        <div className={`overflow-auto table-scroll ${
-          isFullscreen ? 'flex-1 max-h-none' : 'max-h-96'
-        }`}>
+      {/* Table Container */}
+      <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+        <div className="overflow-auto table-scroll max-h-96">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
               <tr>
@@ -463,11 +437,12 @@ export function EnhancedWorkPackageTable({ data, conversationId }: EnhancedWorkP
       <Dialog open={showFullscreenModal} onOpenChange={setShowFullscreenModal}>
         <DialogContent className="max-w-[95vw] max-h-[95vh] w-full h-full">
           <DialogHeader>
-            <DialogTitle>Data Table - New Window</DialogTitle>
+            <DialogTitle>Work Package Data - New Window</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-auto">
-            <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-              <div className="overflow-auto max-h-[75vh] table-scroll">
+            {/* Table Section */}
+            <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden mb-6">
+              <div className="overflow-auto max-h-[40vh] table-scroll">
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
                     <tr>
@@ -507,6 +482,23 @@ export function EnhancedWorkPackageTable({ data, conversationId }: EnhancedWorkP
                 </table>
               </div>
             </div>
+            
+            {/* Charts Section */}
+            {generatedCharts && (
+              <div className="max-h-[50vh] overflow-auto">
+                <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-200">Generated Visualizations</h3>
+                  <p className="text-sm text-blue-600 dark:text-blue-300">
+                    {generatedCharts.charts?.length || 0} charts generated from your table data
+                  </p>
+                </div>
+                <MultiChartRenderer
+                  data={data}
+                  config={generatedCharts}
+                  height={400}
+                />
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
