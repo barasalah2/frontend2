@@ -1,0 +1,108 @@
+import {
+  PieChart,
+  Pie,
+  Tooltip,
+  Cell,
+  ResponsiveContainer,
+  Legend,
+} from 'recharts';
+
+type Datum = { x: string; y: number };
+interface ChartDimensions {
+  width?: number;
+  height?: number;
+}
+interface PieChartProps {
+  data: Datum[];
+  config: {
+    type: 'pie' | 'donut';
+    x: string;           // display label for the x‑axis dimension
+    y: string;           // display label for the y‑axis dimension
+    colors?: string[];   // optional override palette
+  };
+  dimensions?: ChartDimensions;
+}
+
+const DEFAULT_COLORS = [
+  '#2563eb', '#14b8a6', '#f59e0b', '#ef4444', '#8b5cf6', '#10b981',
+];
+
+export const RenderPieChart: React.FC<PieChartProps> = ({
+  data,
+  config,
+  dimensions = { width: 320, height: 240 },
+}) => {
+  const isDonut = config.type.toLowerCase() === 'donut';
+  const innerRadius = isDonut ? 0.5 : 0; // 50 % of outerRadius if donut
+  const outerRadius = 100;               // treated as relative by Recharts
+
+  const palette = config.colors ?? DEFAULT_COLORS;
+  const total = data.reduce((sum, d) => sum + d.y, 0);
+
+  /** Custom tooltip for richer context */
+  const CustomTooltip = ({
+    active,
+    payload,
+    label,
+  }: {
+    active?: boolean;
+    payload?: any[];
+    label?: string;
+  }) => {
+    if (!active || !payload?.length) return null;
+
+    const { name, value, percent } = payload[0]; // Pie injects these keys
+    return (
+      <div className="rounded-lg bg-gray-900/90 p-3 text-xs text-white shadow-lg backdrop-blur-md">
+        <p className="font-semibold">{label}</p>
+        <p>
+          {config.y}: <span className="font-medium">{value.toLocaleString()}</span>
+        </p>
+        <p>
+          % of total:{' '}
+          <span className="font-medium">{(percent * 100).toFixed(1)}%</span>
+        </p>
+        <p className="pt-1 text-[10px] text-gray-300">
+          Total {config.y.toLowerCase()}: {total.toLocaleString()}
+        </p>
+      </div>
+    );
+  };
+
+  return (
+    <ResponsiveContainer
+      width={dimensions.width ?? '100%'}
+      height={dimensions.height ?? '100%'}
+    >
+      <PieChart>
+        <Pie
+          data={data}
+          dataKey="y"
+          nameKey="x"
+          cx="50%"
+          cy="50%"
+          innerRadius={`${innerRadius * 100}%`}
+          outerRadius={outerRadius}
+          paddingAngle={2}
+          label={({ name, percent }) =>
+            `${name} ${(percent * 100).toFixed(0)}%`
+          }
+          labelLine={false}
+        >
+          {data.map((_, i) => (
+            <Cell key={i} fill={palette[i % palette.length]} />
+          ))}
+        </Pie>
+        <Tooltip content={<CustomTooltip />} />
+        {/* Swap in your own Legend component here if needed */}
+        <Legend
+          formatter={(value) => (
+            <span className="text-sm text-gray-700 dark:text-gray-200">
+              {value}
+            </span>
+          )}
+        />
+      </PieChart>
+    </ResponsiveContainer>
+  );
+};

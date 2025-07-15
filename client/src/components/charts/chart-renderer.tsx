@@ -780,15 +780,15 @@ const GanttChart: React.FC<GanttProps> = ({ data, config, width = 800, height = 
 const ResponsiveDumbbellChart: React.FC<Omit<DumbbellProps, 'width' | 'height'>> = ({ data, config }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState<number>(0);
-  const height = 500;
+  const height = Math.max(500, data.length * 20 + 150); // Dynamic height based on data
 
   // Resize observer callback
   const measure = useCallback(() => {
     if (containerRef.current) {
       const containerWidth = containerRef.current.getBoundingClientRect().width;
-      // Calculate responsive width with min/max constraints
+      // Calculate responsive width with min/max constraints  
       const calculatedWidth = Math.min(containerWidth - 40, 1200); // Max width 1200px, padding 40px
-      setWidth(Math.max(400, calculatedWidth)); // Minimum 400px width
+      setWidth(Math.max(600, calculatedWidth)); // Minimum 600px width for better labels
     }
   }, []);
 
@@ -912,7 +912,7 @@ const DumbbellChart: React.FC<DumbbellProps> = ({ data, config, width = 800, hei
     );
   }
 
-  const margin = { top: 40, left: 300, right: 210, bottom: 60 };
+  const margin = { top: 40, left: 350, right: 210, bottom: 60 };
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
 
@@ -922,9 +922,9 @@ const DumbbellChart: React.FC<DumbbellProps> = ({ data, config, width = 800, hei
   // Dynamic padding based on dataset size
   const getPadding = (dataLength: number) => {
     if (dataLength <= 20) return 0.3;
-    if (dataLength <= 50) return 0.15;
-    if (dataLength <= 100) return 0.1;
-    return 0.05; // Very large datasets
+    if (dataLength <= 50) return 0.2;
+    if (dataLength <= 100) return 0.15;
+    return 0.1; // Very large datasets
   };
 
   const yScale = scaleBand<string>({
@@ -1074,7 +1074,7 @@ const DumbbellChart: React.FC<DumbbellProps> = ({ data, config, width = 800, hei
           }}>
             <svg width={width} height={height - margin.top - 40} style={{ display: 'block' }}>
               <Group top={0} left={margin.left}>
-                {/* Grid lines */}
+                {/* Vertical Grid lines */}
                 {xScale.ticks().map((tick, i) => (
                   <line
                     key={`grid-x-${i}`}
@@ -1082,12 +1082,31 @@ const DumbbellChart: React.FC<DumbbellProps> = ({ data, config, width = 800, hei
                     x2={xScale(tick)}
                     y1={0}
                     y2={innerHeight}
-                    stroke="#e0e0e0"
-                    strokeDasharray="3,3"
+                    stroke="var(--border)"
+                    strokeDasharray="2,2"
                     strokeWidth={1}
-                    opacity={0.6}
+                    opacity={0.5}
                   />
                 ))}
+                
+                {/* Horizontal Grid lines */}
+                {tasks.map((task, i) => {
+                  const y = yScale(task);
+                  if (y === undefined) return null;
+                  return (
+                    <line
+                      key={`grid-y-${i}`}
+                      x1={0}
+                      x2={innerWidth}
+                      y1={y + yScale.bandwidth() / 2}
+                      y2={y + yScale.bandwidth() / 2}
+                      stroke="var(--border)"
+                      strokeDasharray="1,3"
+                      strokeWidth={1}
+                      opacity={0.3}
+                    />
+                  );
+                })}
                 
                 {/* Dumbbells */}
                 {parsedData.map((d, i) => {
@@ -1902,11 +1921,50 @@ const renderAreaChart = (data: any[], config: ChartConfig, dimensions?: { width:
 
 const renderPieChart = (data: any[], config: ChartConfig, dimensions?: { width: number, height: number }) => {
   const isDonut = config.type.toLowerCase() === 'donut';
-  const innerRadius = isDonut ? 50 : 0; // Hollow center for donut charts
-  const outerRadius = 100;
+  const innerRadius = isDonut ? 0.5 : 0; // 50% of outerRadius if donut
+  const outerRadius = 100;               // treated as relative by Recharts
+
+  const total = data.reduce((sum, d) => sum + d.y, 0);
+
+  /** Custom tooltip for richer context */
+  const CustomTooltip = ({
+    active,
+    payload,
+    label,
+  }: {
+    active?: boolean;
+    payload?: any[];
+    label?: string;
+  }) => {
+    if (!active || !payload?.length) return null;
+
+    const item = payload[0];
+    const { name, value } = item;
+    // Calculate percentage manually since Recharts might not provide it
+    const percentage = total > 0 ? (value / total) * 100 : 0;
+    
+    return (
+      <div className="rounded-lg bg-gray-900/90 p-3 text-xs text-white shadow-lg backdrop-blur-md">
+        <p className="font-semibold">{name}</p>
+        <p>
+          {config.y}: <span className="font-medium">{value.toLocaleString()}</span>
+        </p>
+        <p>
+          % of total:{' '}
+          <span className="font-medium">{percentage.toFixed(1)}%</span>
+        </p>
+        <p className="pt-1 text-[10px] text-gray-300">
+          Total {config.y.toLowerCase()}: {total.toLocaleString()}
+        </p>
+      </div>
+    );
+  };
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <ResponsiveContainer
+      width={dimensions?.width ?? '100%'}
+      height={dimensions?.height ?? '100%'}
+    >
       <PieChart>
         <Pie
           data={data}
@@ -1914,30 +1972,26 @@ const renderPieChart = (data: any[], config: ChartConfig, dimensions?: { width: 
           nameKey="x"
           cx="50%"
           cy="50%"
-          innerRadius={innerRadius}
+          innerRadius={`${innerRadius * 100}%`}
           outerRadius={outerRadius}
-          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+          paddingAngle={2}
+          label={({ name, percent }) =>
+            `${name} ${(percent * 100).toFixed(0)}%`
+          }
           labelLine={false}
         >
-          {data.map((entry, index) => (
-            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+          {data.map((_, i) => (
+            <Cell key={i} fill={COLORS[i % COLORS.length]} />
           ))}
         </Pie>
-        <Tooltip 
-          formatter={(value, name) => [
-            typeof value === 'number' ? value.toLocaleString() : value, 
-            config.y || 'Value'
-          ]}
-          labelFormatter={(label) => `${config.x}: ${label}`}
-          contentStyle={{
-            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-            border: 'none',
-            borderRadius: '4px',
-            color: 'white',
-            fontSize: '12px'
-          }}
+        <Tooltip content={<CustomTooltip />} />
+        <Legend
+          formatter={(value) => (
+            <span className="text-sm text-gray-700 dark:text-gray-200">
+              {value}
+            </span>
+          )}
         />
-        <Legend />
       </PieChart>
     </ResponsiveContainer>
   );
@@ -2077,6 +2131,22 @@ const renderDumbbellChart = (data: any[], config: ChartConfig, dimensions?: { wi
 };
 
 const renderHistogram = (data: any[], config: ChartConfig, dimensions?: { width: number, height: number }) => {
+  console.log('Histogram Debug - Input data:', data.slice(0, 3));
+  console.log('Histogram Debug - Config:', config);
+  
+  // Check if this is a degenerate case (single aggregated value)
+  if (data.length === 1 && config.transform_x === 'count') {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <div className="text-gray-400 mb-2">Cannot create histogram</div>
+          <div className="text-sm text-gray-500">Count transform aggregated all data into single value: {data[0].x}</div>
+          <div className="text-xs text-gray-400 mt-2">Histogram needs raw data distribution, not aggregated counts</div>
+        </div>
+      </div>
+    );
+  }
+  
   // For histogram, if data is already processed (has bins), use it directly
   // Otherwise, process raw data using the x field
   let histogramData;
@@ -2089,9 +2159,38 @@ const renderHistogram = (data: any[], config: ChartConfig, dimensions?: { width:
       frequency: (item.y || item.count || 1) / data.length
     }));
   } else {
-    // Need to create bins from raw data - reconstruct original data structure
-    const originalData = data.map(item => ({ [config.x]: item.x }));
-    histogramData = processHistogramData(originalData, config.x);
+    // For date fields, convert dates to numeric values (timestamps)
+    const originalData = data.map(item => {
+      let value = item.x;
+      // If it's a date field, convert to timestamp
+      if (config.x.toLowerCase().includes('date') || config.x.toLowerCase().includes('finish')) {
+        const date = new Date(value);
+        value = isNaN(date.getTime()) ? null : date.getTime();
+      }
+      return { [config.x]: value };
+    }).filter(item => item[config.x] !== null && item[config.x] !== undefined && item[config.x] !== '');
+    
+    console.log('Histogram Debug - Processed data for binning:', originalData.slice(0, 3));
+    
+    if (originalData.length === 0) {
+      console.log('Histogram Debug - No valid data for histogram');
+      histogramData = [];
+    } else {
+      histogramData = processHistogramData(originalData, config.x);
+    }
+  }
+  
+  console.log('Histogram Debug - Final histogram data:', histogramData);
+
+  if (!histogramData || histogramData.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <div className="text-gray-400 mb-2">No valid data for histogram</div>
+          <div className="text-sm text-gray-500">Check if {config.x} contains numeric or date values</div>
+        </div>
+      </div>
+    );
   }
 
   return (
