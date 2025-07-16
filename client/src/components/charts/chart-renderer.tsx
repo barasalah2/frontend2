@@ -32,6 +32,8 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertCircle, Info, Maximize2, Minimize2 } from 'lucide-react';
 import { transformData, processHistogramData } from '@/lib/chart-transformations';
+import { TreemapChart } from './TreemapChart';
+import { BubbleChart } from './BubbleChart';
 
 export interface ChartConfig {
   type: string;
@@ -2528,6 +2530,63 @@ const renderHorizontalBarChart = (data: HorizontalBarDatum[], config: ChartConfi
   return <ResponsiveHorizontalBarChart data={data} config={config} />;
 };
 
+const renderTreemapChart = (data: any[], config: ChartConfig, dimensions?: { width: number, height: number }) => {
+  // Calculate container dimensions
+  const width = dimensions?.width || 900;
+  const height = dimensions?.height || 500;
+  
+  // Transform config to match TreemapChart expected format
+  const treemapConfig = {
+    type: "treemap" as const,
+    x: config.x,
+    x2: config.x2 || null,
+    y: config.y,
+    series: config.series || "category",
+    title: config.title,
+    transform_x: config.transform_x,
+    transform_y: config.transform_y,
+    rationale: config.rationale,
+    data: data.map(item => ({
+      x: item.x,
+      x2: item.x2 || null,
+      y: item.y || item.value || 0,
+      series: item.series || "default",
+      count: item.count || 1,
+      value: item.value || item.y || 0
+    }))
+  };
+
+  return <TreemapChart config={treemapConfig} width={width} height={height} />;
+};
+
+const renderBubbleChart = (data: any[], config: ChartConfig, dimensions?: { width: number, height: number }) => {
+  // Calculate container dimensions
+  const height = dimensions?.height || 500;
+  
+  // Transform config to match BubbleChart expected format
+  const bubbleConfig = {
+    type: "bubble" as const,
+    x: config.x,
+    x2: config.x2 || null,
+    y: config.y,
+    series: config.series || "category",
+    title: config.title,
+    transform_x: config.transform_x,
+    transform_y: config.transform_y,
+    rationale: config.rationale,
+    data: data.map(item => ({
+      x: item.x,
+      x2: item.x2 || null,
+      y: item.y || item.value || 0,
+      series: item.series || "default",
+      count: item.count || 1,
+      value: item.value || item.y || 0
+    }))
+  };
+
+  return <BubbleChart config={bubbleConfig} height={height} />;
+};
+
 const renderFallbackChart = (data: any[], config: ChartConfig, dimensions?: { width: number, height: number }) => {
   return (
     <div className="flex items-center justify-center h-full">
@@ -2611,8 +2670,9 @@ export function ChartRenderer({ data, config, height = 400, width = "100%" }: Ch
       case 'donut':
         return renderPieChart(transformedData, config, chartDimensions);
       case 'scatter':
-      case 'bubble':
         return renderScatterChart(transformedData, config, chartDimensions);
+      case 'bubble':
+        return renderBubbleChart(transformedData, config, chartDimensions);
       case 'gantt':
         return renderGanttChart(transformedData, config, chartDimensions);
       case 'dumbbell':
@@ -2623,6 +2683,8 @@ export function ChartRenderer({ data, config, height = 400, width = "100%" }: Ch
         return renderBarChart(transformedData, config, chartDimensions);
       case 'horizontal_bar':
         return renderHorizontalBarChart(transformedData, config, chartDimensions);
+      case 'treemap':
+        return renderTreemapChart(transformedData, config, chartDimensions);
       default:
         return renderFallbackChart(transformedData, config, chartDimensions);
     }

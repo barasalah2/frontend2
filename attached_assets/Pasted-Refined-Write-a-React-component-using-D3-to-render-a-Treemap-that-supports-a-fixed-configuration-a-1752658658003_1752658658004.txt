@@ -1,0 +1,258 @@
+Refined: *Write a React component using D3 to render a Treemap that supports a fixed configuration and input structure with the following features: pre-aggregated data, labeled rectangles, a color-coded legend, axes-like grouping, and tooltips showing all relevant details. The chart must consume the provided JSON config structure as-is.*
+
+Perspective: *Production-grade dashboard visualizer — ensuring clarity, consistency, and completeness for visualizing AWP metrics in a Treemap.*
+
+---
+
+Execution:
+
+Here is a complete **React + D3 Treemap component** that satisfies your requirements — using the exact config and structure you provided (e.g. `x`, `x2`, `y`, `series`, `value`, `count`, etc.).
+
+---
+
+### ✅ `TreemapChart.tsx`
+
+```tsx
+import React, { useRef, useEffect } from "react";
+import * as d3 from "d3";
+
+type TreemapChartProps = {
+  config: {
+    type: "treemap";
+    x: string;
+    x2: string | null;
+    y: string;
+    series: string;
+    title: string;
+    transform_x?: string;
+    transform_y?: string;
+    rationale?: string;
+    data: {
+      x: string;
+      x2: string | null;
+      y: number;
+      series: string;
+      count?: number;
+      value?: number;
+    }[];
+  };
+  width?: number;
+  height?: number;
+};
+
+export const TreemapChart: React.FC<TreemapChartProps> = ({
+  config,
+  width = 900,
+  height = 500
+}) => {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const legendRef = useRef<SVGGElement>(null);
+
+  useEffect(() => {
+    if (!svgRef.current || !config.data?.length) return;
+
+    const { x, x2, y, series, data, title } = config;
+    const rootData = {
+      name: "root",
+      children: data.map((d) => ({
+        name: d[x],
+        group: d[series],
+        value: d[y],
+        details: d
+      }))
+    };
+
+    const root = d3
+      .hierarchy(rootData, (d: any) => d.children)
+      .sum((d: any) => d.value);
+
+    const treemapLayout = d3.treemap().size([width, height - 40]).padding(2);
+    treemapLayout(root);
+
+    const color = d3
+      .scaleOrdinal(d3.schemeCategory10)
+      .domain(data.map((d) => d[series]));
+
+    const svg = d3.select(svgRef.current);
+    svg.selectAll("*").remove();
+
+    const tooltip = d3
+      .select("body")
+      .append("div")
+      .style("position", "absolute")
+      .style("padding", "6px 10px")
+      .style("background", "#222")
+      .style("color", "#fff")
+      .style("border-radius", "4px")
+      .style("font-size", "12px")
+      .style("pointer-events", "none")
+      .style("z-index", "1000")
+      .style("opacity", 0);
+
+    const nodes = svg
+      .selectAll("g")
+      .data(root.leaves())
+      .enter()
+      .append("g")
+      .attr("transform", (d) => `translate(${d.x0},${d.y0})`);
+
+    nodes
+      .append("rect")
+      .attr("width", (d) => d.x1 - d.x0)
+      .attr("height", (d) => d.y1 - d.y0)
+      .attr("fill", (d) => color(d.data.group))
+      .attr("stroke", "#fff")
+      .on("mouseover", function (event, d) {
+        tooltip
+          .style("opacity", 1)
+          .html(
+            `<strong>${series}:</strong> ${d.data.group}<br/>
+             <strong>${x}:</strong> ${d.data.name}<br/>
+             <strong>${y}:</strong> ${d.data.value}`
+          );
+      })
+      .on("mousemove", function (event) {
+        tooltip
+          .style("left", event.pageX + 15 + "px")
+          .style("top", event.pageY + "px");
+      })
+      .on("mouseout", function () {
+        tooltip.style("opacity", 0);
+      });
+
+    nodes
+      .append("text")
+      .attr("x", 4)
+      .attr("y", 14)
+      .text((d) => d.data.name)
+      .attr("font-size", "11px")
+      .attr("fill", "#fff")
+      .attr("pointer-events", "none");
+
+    // Legend
+    const uniqueSeries = [...new Set(data.map((d) => d[series]))];
+    const legend = d3.select(legendRef.current);
+    legend.selectAll("*").remove();
+
+    const legendItems = legend
+      .selectAll("g")
+      .data(uniqueSeries)
+      .enter()
+      .append("g")
+      .attr("transform", (_, i) => `translate(${i * 150},0)`);
+
+    legendItems
+      .append("rect")
+      .attr("width", 15)
+      .attr("height", 15)
+      .attr("fill", (d) => color(d));
+
+    legendItems
+      .append("text")
+      .attr("x", 20)
+      .attr("y", 12)
+      .text((d) => d)
+      .attr("font-size", "12px")
+      .attr("fill", "#333");
+
+    return () => {
+      tooltip.remove();
+    };
+  }, [config, width, height]);
+
+  return (
+    <div>
+      <h3>{config.title}</h3>
+      <svg ref={svgRef} width={width} height={height} />
+      <svg width={width} height={30}>
+        <g ref={legendRef} transform="translate(10,10)" />
+      </svg>
+      {config.rationale && (
+        <p style={{ fontStyle: "italic", fontSize: "12px", color: "#444" }}>
+          {config.rationale}
+        </p>
+      )}
+    </div>
+  );
+};
+```
+
+---
+
+### 🧪 Example Usage:
+
+```tsx
+<TreemapChart
+  config={{
+    type: "treemap",
+    x: "x",
+    x2: null,
+    y: "y",
+    series: "series",
+    title: "Total Tag Quantity by CWP",
+    transform_x: "topk:20",
+    transform_y: "sum",
+    rationale:
+      "Shows the total quantity of tags for each Construction Work Package",
+    data: [
+      {
+        x: "1101000_13215_002",
+        x2: null,
+        y: 3200,
+        series: "piping",
+        count: 1,
+        value: 3200
+      },
+      {
+        x: "1101000_17311_002",
+        x2: null,
+        y: 2400,
+        series: "piping",
+        count: 1,
+        value: 2400
+      },
+      {
+        x: "1101000_13212_002",
+        x2: null,
+        y: 2100,
+        series: "piping",
+        count: 1,
+        value: 2100
+      },
+      {
+        x: "1101000_17311_001",
+        x2: null,
+        y: 1800,
+        series: "piping",
+        count: 1,
+        value: 1800
+      },
+      {
+        x: "1020-QCB2",
+        x2: null,
+        y: 1250,
+        series: "piping",
+        count: 1,
+        value: 1250
+      },
+      {
+        x: "1040-QCB2",
+        x2: null,
+        y: 890,
+        series: "piping",
+        count: 1,
+        value: 890
+      }
+    ]
+  }}
+/>
+```
+
+---
+
+Let me know if you'd like this upgraded with:
+
+* auto `topK` transform
+* `x2` hierarchy support (e.g., CWP > Discipline)
+* responsiveness with ResizeObserver
+* or port to `visx`-based layout.

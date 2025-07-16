@@ -1,0 +1,242 @@
+React + D3 Bubble Chart (Axis, Legend, Tooltip, Labels)
+Here’s the **final responsive version** of the `BubbleChart` with auto-resize using a `ResizeObserver`. This version will:
+
+* Fit the width of its container (`div`)
+* Re-render the chart on resize
+* Avoid layout cutoff or overflow issues
+
+---
+
+### ✅ `ResponsiveBubbleChart.tsx`
+
+```tsx
+import React, { useEffect, useRef, useState } from "react";
+import * as d3 from "d3";
+
+type BubbleChartProps = {
+  config: {
+    type: "bubble";
+    x: string;
+    y: string;
+    x2: string | null;
+    series: string;
+    title: string;
+    transform_x?: string;
+    transform_y?: string;
+    rationale?: string;
+    data: {
+      x: string;
+      x2: string | null;
+      y: number;
+      series: string;
+      count?: number;
+      value?: number;
+    }[];
+  };
+  height?: number;
+};
+
+export const ResponsiveBubbleChart: React.FC<BubbleChartProps> = ({
+  config,
+  height = 500
+}) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+  const legendRef = useRef<SVGGElement>(null);
+  const [width, setWidth] = useState<number>(800); // Initial width
+
+  // Observe container width
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect) {
+          setWidth(entry.contentRect.width);
+        }
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  // Draw chart
+  useEffect(() => {
+    const { data, x, y, series } = config;
+    if (!data.length || !svgRef.current || width < 100) return;
+
+    const margin = { top: 20, right: 30, bottom: 80, left: 80 };
+    const innerWidth = width - margin.left - margin.right;
+    const innerHeight = height - margin.top - margin.bottom;
+
+    const svg = d3.select(svgRef.current);
+    svg.selectAll("*").remove();
+
+    const uniqueX = [...new Set(data.map((d) => d[x]))];
+    const xScale = d3
+      .scalePoint<string>()
+      .domain(uniqueX)
+      .range([0, innerWidth])
+      .padding(0.5);
+
+    const yExtent = d3.extent(data.map((d) => d[y])) as [number, number];
+    const yScale = d3.scaleLinear().domain([0, yExtent[1]!]).range([innerHeight, 0]);
+
+    const rScale = d3
+      .scaleSqrt()
+      .domain([0, d3.max(data, (d) => d[y])!])
+      .range([4, 40]);
+
+    const colorScale = d3
+      .scaleOrdinal(d3.schemeCategory10)
+      .domain(data.map((d) => d[series]));
+
+    const container = svg
+      .append("g")
+      .attr("transform", `translate(${margin.left},${margin.top})`);
+
+    // Axes
+    container
+      .append("g")
+      .attr("transform", `translate(0, ${innerHeight})`)
+      .call(d3.axisBottom(xScale))
+      .selectAll("text")
+      .attr("transform", "rotate(-40)")
+      .style("text-anchor", "end");
+
+    container.append("g").call(d3.axisLeft(yScale));
+
+    // Tooltip
+    const tooltip = d3
+      .select("body")
+      .append("div")
+      .style("position", "absolute")
+      .style("padding", "6px 10px")
+      .style("background", "#222")
+      .style("color", "#fff")
+      .style("border-radius", "4px")
+      .style("font-size", "12px")
+      .style("pointer-events", "none")
+      .style("z-index", "1000")
+      .style("opacity", 0);
+
+    // Bubbles
+    container
+      .selectAll("circle")
+      .data(data)
+      .enter()
+      .append("circle")
+      .attr("cx", (d) => xScale(d[x])!)
+      .attr("cy", (d) => yScale(d[y]))
+      .attr("r", (d) => rScale(d[y]))
+      .attr("fill", (d) => colorScale(d[series])!)
+      .attr("opacity", 0.7)
+      .attr("stroke", "#fff")
+      .on("mouseover", function (event, d) {
+        tooltip
+          .style("opacity", 1)
+          .html(
+            `<strong>${series}:</strong> ${d[series]}<br/>
+             <strong>${x}:</strong> ${d[x]}<br/>
+             <strong>${y}:</strong> ${d[y]}<br/>
+             <strong>Value:</strong> ${d.value ?? d[y]}`
+          );
+      })
+      .on("mousemove", function (event) {
+        tooltip
+          .style("left", event.pageX + 15 + "px")
+          .style("top", event.pageY + "px");
+      })
+      .on("mouseout", function () {
+        tooltip.style("opacity", 0);
+      });
+
+    // Axis Labels
+    svg
+      .append("text")
+      .attr("transform", `translate(${margin.left + innerWidth / 2},${height - 20})`)
+      .style("text-anchor", "middle")
+      .style("font-size", "13px")
+      .text(x);
+
+    svg
+      .append("text")
+      .attr("transform", `translate(20,${margin.top + innerHeight / 2}) rotate(-90)`)
+      .style("text-anchor", "middle")
+      .style("font-size", "13px")
+      .text(y);
+
+    // Legend
+    const uniqueSeries = [...new Set(data.map((d) => d[series]))];
+    const legend = d3.select(legendRef.current);
+    legend.selectAll("*").remove();
+
+    const legendItems = legend
+      .selectAll("g")
+      .data(uniqueSeries)
+      .enter()
+      .append("g")
+      .attr("transform", (_, i) => `translate(${i * 150},0)`);
+
+    legendItems
+      .append("rect")
+      .attr("width", 15)
+      .attr("height", 15)
+      .attr("fill", (d) => colorScale(d)!);
+
+    legendItems
+      .append("text")
+      .attr("x", 20)
+      .attr("y", 12)
+      .text((d) => d)
+      .attr("font-size", "12px")
+      .attr("fill", "#333");
+
+    return () => tooltip.remove();
+  }, [config, width, height]);
+
+  return (
+    <div ref={containerRef}>
+      <h3>{config.title}</h3>
+      <svg ref={svgRef} width={width} height={height} />
+      <svg width={width} height={30}>
+        <g ref={legendRef} transform="translate(10,10)" />
+      </svg>
+      {config.rationale && (
+        <p style={{ fontStyle: "italic", fontSize: "12px", color: "#444" }}>
+          {config.rationale}
+        </p>
+      )}
+    </div>
+  );
+};
+```
+
+---
+
+### 🧪 Usage: (same config as before)
+
+```tsx
+<ResponsiveBubbleChart
+  config={{
+    type: "bubble",
+    x: "x",
+    x2: null,
+    y: "y",
+    series: "series",
+    title: "Total Tag Quantity by CWP",
+    transform_x: "topk:20",
+    transform_y: "sum",
+    rationale: "Shows the total quantity of tags for each Construction Work Package",
+    data: [
+      { x: "1101000_13215_002", x2: null, y: 3200, series: "piping", count: 1, value: 3200 },
+      { x: "1101000_17311_002", x2: null, y: 2400, series: "piping", count: 1, value: 2400 },
+      { x: "1101000_13212_002", x2: null, y: 2100, series: "piping", count: 1, value: 2100 },
+      { x: "1101000_17311_001", x2: null, y: 1800, series: "piping", count: 1, value: 1800 },
+      { x: "1020-QCB2", x2: null, y: 1250, series: "piping", count: 1, value: 1250 },
+      { x: "1040-QCB2", x2: null, y: 890, series: "piping", count: 1, value: 890 }
+    ]
+  }}
+/>
+```
+
+---
